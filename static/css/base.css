@@ -1,0 +1,251 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    height: 100vh;
+    background: #f4f7fb;
+    color: #333;
+  }
+  
+  /* Sidebar */
+  .sidebar {
+    width: 220px;
+    background: #1f2937;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+  
+  .sidebar h2 {
+    margin: 0 0 20px;
+    font-size: 20px;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  .sidebar a {
+    color: #cbd5e1;
+    text-decoration: none;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 5px 0;
+    transition: background 0.3s;
+    display: block;
+  }
+  
+  .sidebar a:hover {
+    background: #374151;
+    color: #fff;
+  }
+  
+  /* Main Content */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+  
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  
+  header h1 {
+    font-size: 22px;
+    margin: 0;
+  }
+  
+  /* Content area */
+  .content {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    flex: 1;
+  }
+  
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  
+  .form-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .form-group label {
+    width: 100px;
+    font-weight: 500;
+  }
+  
+  .form-group input, .form-group select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  
+  .symptoms-list, .medicine-list {
+    margin-top: 10px;
+  }
+  
+  .symptom-item, .medicine-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: #f9fafb;
+    margin-bottom: 6px;
+    border-radius: 6px;
+  }
+  
+  .symptom-item button, .medicine-item button {
+    background: crimson;
+    border: none;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .symptom-item button:hover, .medicine-item button:hover {
+    background: #dc2626;
+  }
+  
+  .btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    margin-top: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  
+  .btn:hover {
+    background: #1d4ed8;
+  }
+  .sidebar a.active {
+    background-color: #4CAF50; /* highlight color */
+    color: white; /* text color */
+    font-weight: bold;
+  }
+  body {
+    display: flex;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #f5f7fa;
+  }
+  
+  .sidebar {
+    width: 220px;
+    background: #283593;
+    color: white;
+    height: 100vh;
+    padding: 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+  
+  .sidebar a {
+    display: block;
+    padding: 10px;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 5px;
+  }
+  
+  .sidebar a.active {
+    background: #84c05c;
+    font-weight: bold;
+  }
+  
+  .sidebar a:hover {
+    background: #3949ab;
+  }
+  
+  .main {
+    margin-left: 240px;
+    padding: 20px;
+    width: calc(100% - 240px);
+  }
+  
+  .top-right {
+    position: absolute;
+    right: 40px;
+    top: 20px;
+    font-weight: bold;
+    font-size: 18px;
+    color: #444;
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .mic-controls .btn {
+    margin-right: 8px;
+    background: #283593;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  .mic-controls .btn:hover {
+    background: #3949ab;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  
+  /* Recording indicator */
+  #recordingIndicator {
+    width: 14px;
+    height: 14px;
+    background: red;
+    border-radius: 50%;
+    display: inline-block;
+    animation: blink 1s infinite;
+    margin-left: 10px;
+  }
+  
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  
+  #recording-section {
+    margin-top: 20px;
+  }
+  
+  #transcribedText {
+    width: 100%;
+    height: 120px;
+    margin-top: 10px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  
