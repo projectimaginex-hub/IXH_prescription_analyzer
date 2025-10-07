@@ -1,231 +1,128 @@
 {% extends 'base.html' %}
 
-{% block title %}Home - Doctor App{% endblock %}
+{% block title %}Prescription - Doctor App{% endblock %}
 
 {% block content %}
-<header>
-  <h1 style="position: relative;margin-top:0 ;">Capture Conversation 🎙️</h1>
-
-  <!--  Audio Recorder Section -->
+<header class="page-header">
+  <h1>Capture Conversation 🎙️</h1>
   <div class="audio-controls">
-    <button id="startBtn" class="btn record-btn">🎙️ Start Recording</button>
-    <button id="pauseBtn" class="btn" style="display:none;">⏸️ Pause</button>
-    <button id="stopBtn" class="btn" style="display:none;">⏹️ Stop</button>
+    <button id="startBtn" class="btn record-btn">Start Recording</button>
+    <button id="stopBtn" class="btn" style="display:none;">Stop Recording</button>
     <span id="recordingIndicator" class="blink" style="display:none;">🔴 Recording...</span>
-  </div>
-
-  <!--  Record Result Section -->
-  <div id="recordResult" style="display:none; margin-top:20px;">
-    <h3>🎙️ Record Result:</h3>
-    <audio id="audioPlayback" controls style="display:none; width:70%; margin:10px 0;"></audio>
-    <div id="transcriptionBox" style="margin-top:10px;">
-      <h4>📝 Transcribed Text:</h4>
-      <textarea id="transcriptionText" rows="4" style="width:100%;"></textarea>
-      <div style="margin-top:8px;">
-        <button class="btn" id="downloadAudioBtn">⬇️ Download Audio</button>
-        <button class="btn" id="downloadTextBtn">⬇️ Download Text</button>
-      </div>
-    </div>
-  </div>
-  <div class="restart-container">
-    <button id="restartBtn" class="btn" style="display:none;">🔄 Restart Recording</button>
   </div>
 </header>
 
-<div class="content">
-  <!-- Left card -->
-  <div class="card">
+<!-- This container holds the TWO main cards -->
+<div class="content-container">
+  
+  <!-- Left Card: Contains the form and all manual suggestions -->
+  <div class="card form-card">
     <form method="post">
       {% csrf_token %}
-      <div class="form-group">
-        <label>Patient Name:</label>
-        <input type="text" name="patientName" value="{{ patient.name }}">
-        <label>Phone:</label>
-        <input type="text" name="phone" value="{{ patient.phone }}">
-      </div>
-      <div class="form-group">
-        <label>Age:</label>
-        <input type="number" name="age" value="{{ patient.age }}">
-        <label>Gender:</label>
-        <select name="gender">
-          <option {% if patient.gender == 'Male' %}selected{% endif %}>Male</option>
-          <option {% if patient.gender == 'Female' %}selected{% endif %}>Female</option>
-          <option {% if patient.gender == 'Other' %}selected{% endif %}>Other</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Blood Grp:</label>
-        <input type="text" name="bloodGrp" value="{{ patient.bloodGrp }}">
-        <label>Weight:</label>
-        <input type="number" name="weight" value="{{ patient.weight }}">
-        <label>BP:</label>
-        <input type="text" name="bp" value="{{ patient.bp }}">
+      <div class="form-grid">
+        <div class="form-group"><label>Patient Name:</label><input type="text" name="patientName" value="{{ patient.name }}"></div>
+        <div class="form-group"><label>Phone:</label><input type="text" name="phone" value="{{ patient.phone }}"></div>
+        <div class="form-group"><label>Age:</label><input type="number" name="age" value="{{ patient.age }}"></div>
+        <div class="form-group"><label>Gender:</label><select name="gender"><option {% if patient.gender == 'Male' %}selected{% endif %}>Male</option><option {% if patient.gender == 'Female' %}selected{% endif %}>Female</option><option {% if patient.gender == 'Other' %}selected{% endif %}>Other</option></select></div>
+        <div class="form-group"><label>Blood Grp:</label><input type="text" name="bloodGrp" value="{{ patient.bloodGrp }}"></div>
+        <div class="form-group"><label>Weight:</label><input type="number" name="weight" value="{{ patient.weight }}"></div>
+        <div class="form-group"><label>BP:</label><input type="text" name="bp" value="{{ patient.bp }}"></div>
       </div>
     </form>
 
-    <h3>Symptoms Analysed:</h3>
-    <input type="text" id="symptomInput" placeholder="Enter symptom">
-    <button class="btn" type="button" onclick="addSymptom()">Add Symptom</button>
+    <h3 class="section-title">Symptoms Analysed:</h3>
+    <div class="symptom-input-group">
+      <input type="text" id="symptomInput" placeholder="Enter symptom">
+      <button class="btn" type="button">Add Symptom</button>
+    </div>
     <div class="symptoms-list" id="symptomsList"></div>
 
-    <h3>Suggested Medicine:</h3>
+    <!-- This section is now correctly placed inside this card -->
+    <h3 class="section-title">Suggested Medicine:</h3>
     <div class="medicine-list" id="medicineList"></div>
 
-    <button class="btn" type="button" onclick="verifyData()">Verify</button>
-    <button class="btn" type="button" onclick="sendData()">Send</button>
+    <div class="action-buttons">
+      <button class="btn" type="button">Verify</button>
+      <button class="btn" type="button">Send</button>
+    </div>
   </div>
 
-  <!-- Right card -->
-  <div class="card">
-    <h3>Suggested Medicine (AI)</h3>
-    <div id="aiMedicineList"></div>
+  <!-- Right Card: Contains only the AI suggestions and results -->
+  <div class="card ai-card">
+    <h3>Suggested Medicine</h3>
+    <div id="aiMedicineList">
+       <p>AI suggestions will appear here after analysis.</p>
+    </div>
+    <hr>
+    <h4>🎙️ Record Result:</h4>
+    <audio id="audioPlayback" controls style="width:100%; margin-top:10px;"></audio>
+    <h4>📝 Transcribed Text:</h4>
+    <textarea id="transcriptionText" rows="4" style="width:100%;" readonly></textarea>
   </div>
 </div>
 
-<!--  JS Logic -->
+<!-- JS Logic for Recording and Transcription -->
 <script>
-let recognition, mediaRecorder;
-let isRecognizing = false;
-let audioChunks = [];
+  let recognition, mediaRecorder;
+  let audioChunks = [];
+  const startBtn = document.getElementById("startBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const indicator = document.getElementById("recordingIndicator");
+  const audioPlayback = document.getElementById("audioPlayback");
+  const transcriptionText = document.getElementById("transcriptionText");
 
-const startBtn = document.getElementById("startBtn");
-const pauseBtn = document.getElementById("pauseBtn");
-const stopBtn = document.getElementById("stopBtn");
-const restartBtn = document.getElementById("restartBtn");
-const indicator = document.getElementById("recordingIndicator");
-const audioPlayback = document.getElementById("audioPlayback");
-const recordResult = document.getElementById("recordResult");
-const transcriptionBox = document.getElementById("transcriptionBox");
-const transcriptionText = document.getElementById("transcriptionText");
-const downloadAudioBtn = document.getElementById("downloadAudioBtn");
-const downloadTextBtn = document.getElementById("downloadTextBtn");
-
-//  Speech Recognition Setup
-if ("webkitSpeechRecognition" in window) {
-  recognition = new webkitSpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = "en-IN";
-
-  recognition.onresult = (event) => {
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const result = event.results[i];
-      if (result.isFinal) {
-        transcriptionText.value += result[0].transcript + " ";
-        transcriptionText.scrollTop = transcriptionText.scrollHeight;
+  if ("webkitSpeechRecognition" in window) {
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-IN";
+    recognition.onresult = (event) => {
+      let final_transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          final_transcript += event.results[i][0].transcript;
+        }
       }
-    }
-  };
-} else {
-  alert("Speech recognition not supported in this browser. Use Chrome for best results.");
-}
-
-//  Start Recording
-startBtn.addEventListener("click", async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = () => {
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-      const audioURL = URL.createObjectURL(audioBlob);
-      audioPlayback.src = audioURL;
-      audioPlayback.style.display = "block";
-      if (recognition && isRecognizing) recognition.stop();
-      isRecognizing = false;
-      recordResult.style.display = "block"; // show record result
+      transcriptionText.value += final_transcript;
     };
-
-    mediaRecorder.start();
-    recognition && recognition.start();
-    isRecognizing = true;
-
-    recordResult.style.display = "none"; // hide old result
-    startBtn.style.display = "none";
-    pauseBtn.style.display = "inline-block";
-    stopBtn.style.display = "inline-block";
-    indicator.style.display = "inline-block";
-    startBtn.classList.add("recording");
-  } catch (err) {
-    alert("Microphone access denied or unavailable.");
-    console.error(err);
+  } else {
+    alert("Speech recognition not supported. Please use Google Chrome.");
   }
-});
 
-//  Pause / Resume
-pauseBtn.addEventListener("click", () => {
-  if (mediaRecorder.state === "recording") {
-    mediaRecorder.pause();
-    pauseBtn.textContent = "▶️ Resume";
+  startBtn.addEventListener("click", async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      transcriptionText.value = "";
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+        const audioURL = URL.createObjectURL(audioBlob);
+        audioPlayback.src = audioURL;
+      };
+      mediaRecorder.start();
+      recognition && recognition.start();
+      startBtn.style.display = "none";
+      stopBtn.style.display = "inline-block";
+      indicator.style.display = "inline-block";
+    } catch (err) {
+      alert("Microphone access was denied or is unavailable.");
+      console.error(err);
+    }
+  });
+
+  stopBtn.addEventListener("click", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+    }
+    if (recognition) {
+        recognition.stop();
+    }
+    stopBtn.style.display = "none";
+    startBtn.style.display = "inline-block";
     indicator.style.display = "none";
-  } else if (mediaRecorder.state === "paused") {
-    mediaRecorder.resume();
-    pauseBtn.textContent = "⏸️ Pause";
-    indicator.style.display = "inline-block";
-  }
-});
-
-//  Stop Recording
-stopBtn.addEventListener("click", () => {
-  mediaRecorder.stop();
-  restartBtn.style.display = "flex";
-  indicator.style.display = "none";
-  stopBtn.style.display = "none";
-  pauseBtn.style.display = "none";
- 
-  startBtn.classList.remove("recording");
-});
-
-//  Restart Recording
-restartBtn.addEventListener("click", () => {
-  audioPlayback.src = "";
-  audioPlayback.style.display = "none";
-  transcriptionText.value = "";
-  recordResult.style.display = "none";
-
-  restartBtn.style.display = "none";
-  startBtn.style.display = "inline-block";
-});
-
-// Download Audio
-downloadAudioBtn.addEventListener("click", () => {
-  if (!audioPlayback.src) return alert("No audio recorded yet!");
-  const a = document.createElement("a");
-  a.href = audioPlayback.src;
-  a.download = "recorded_audio.webm";
-  a.click();
-});
-
-//  Download Text
-downloadTextBtn.addEventListener("click", () => {
-  if (!transcriptionText.value) return alert("No text to download!");
-  const blob = new Blob([transcriptionText.value], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "transcription.txt";
-  a.click();
-});
+  });
 </script>
-
-<!--  CSS -->
-<style>
-#restartBtn {
-  display: inline-block; 
-  left: 0%;
-}
-.recorder-container { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 15px; }
-.recorder-left, .recorder-right { flex: 1 1 300px; display: flex; flex-direction: column; gap: 10px; }
-#transcriptionText { width: 100%; min-height: 120px; max-height: 300px; overflow-y: auto; resize: none; padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
-.download-buttons { display: flex; gap: 10px; margin-top: 5px; }
-.btn { background: #007bff; border: none; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: background 0.3s; }
-.btn:hover { background: #0056b3; }
-.record-btn.recording { background: #dc3545; animation: pulse 1s infinite; }
-.blink { animation: blink 1s infinite; color: red; font-weight: bold; }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
-@keyframes blink { 50% { opacity: 0; } }
-
-</style>
 {% endblock %}
+

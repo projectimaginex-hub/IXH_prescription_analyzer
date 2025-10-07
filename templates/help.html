@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Help - Doctor App{% endblock %}
+
+{% block content %}
+<header class="page-header">
+  <h1>❓ Help & FAQ</h1>
+</header>
+
+<div class="card">
+  <div class="faq-item">
+    <h3 class="faq-question">How do I start a recording?</h3>
+    <div class="faq-answer">
+      <p>Navigate to the "Prescriptions" page. Click the "Start Recording" button at the top of the page to begin capturing the conversation. Your microphone must be enabled in the browser.</p>
+    </div>
+  </div>
+  <hr>
+  <div class="faq-item">
+    <h3 class="faq-question">Where is the transcribed text saved?</h3>
+    <div class="faq-answer">
+      <p>The transcribed text appears in real-time in the "Transcribed Text" box on the right-hand card of the "Prescriptions" page. Currently, the text is not saved automatically, but you can copy it or use the "Download Text" button if available.</p>
+    </div>
+  </div>
+  <hr>
+  <div class="faq-item">
+    <h3 class="faq-question">How does the AI suggestion work?</h3>
+    <div class="faq-answer">
+      <p>The AI model analyzes the keywords and context from the transcribed conversation text to suggest relevant medicines. This feature is currently in development and will be enhanced in future updates.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

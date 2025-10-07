@@ -1,8 +1,21 @@
 from django.urls import path
-from .views import home, prescription
+from . import views  # It's better to import the whole module
 
 urlpatterns = [
-    path('Home', home, name='home'),
-    path('', home, name='home'),
-    path('prescription', prescription, name='prescription')
+    # The root URL of the app points to the home view
+    path('', views.home, name='home'),
+    
+    # URL for the prescription page
+    path('prescription/', views.prescription, name='prescription'),
+    
+    # URL for the history page
+    path('history/', views.history, name='history'),
+    
+     
+    # --- ADD THESE NEW URLS ---
+    path('profile/', views.profile, name='profile'),
+    path('contact/', views.contact, name='contact'),
+    path('help/', views.help, name='help'),
+
 ]
+

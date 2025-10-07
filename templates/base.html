@@ -1,4 +1,4 @@
-{% load static %}
+{% comment %} {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,6 +19,37 @@
 
   <div class="main">
     <div class="top-right">
+      <strong>I - X - H</strong>
+    </div>
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="{% static 'js/script.js' %}"></script>
+</body>
+</html> {% endcomment %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Doctor App{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Dr. ABC DEF</h2>
+    <a href="{% url 'home' %}" class="{% if request.path == '/' %}active{% endif %}">Home</a>
+    <a href="{% url 'prescription' %}" class="{% if 'prescription' in request.path %}active{% endif %}">Prescriptions</a>
+    <a href="{% url 'history' %}" class="{% if 'history' in request.path %}active{% endif %}">History</a>
+    
+    <!-- - UPDATED LINKS - -->
+    <a href="{% url 'profile' %}" class="{% if 'profile' in request.path %}active{% endif %}">Profile</a>
+    <a href="{% url 'help' %}" class="{% if 'help' in request.path %}active{% endif %}">Help</a>
+    <a href="{% url 'contact' %}" class="{% if 'contact' in request.path %}active{% endif %}">Contact</a>
+  </div>
+
+  <div class="main-content">
+    <div class="top-bar">
       <strong>I - X - H</strong>
     </div>
     {% block content %}{% endblock %}

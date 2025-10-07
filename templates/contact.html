@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}Contact Us - Doctor App{% endblock %}
+
+{% block content %}
+<header class="page-header">
+  <h1>📞 Contact Us</h1>
+</header>
+
+<div class="content-container">
+  <div class="card contact-form-card">
+    <h3>Send us a Message</h3>
+    <form>
+      <div class="form-group">
+        <label>Your Name:</label>
+        <input type="text" name="name" required>
+      </div>
+      <div class="form-group">
+        <label>Your Email:</label>
+        <input type="email" name="email" required>
+      </div>
+      <div class="form-group">
+        <label>Subject:</label>
+        <input type="text" name="subject" required>
+      </div>
+      <div class="form-group">
+        <label>Message:</label>
+        <textarea name="message" rows="5" required></textarea>
+      </div>
+      <button type="submit" class="btn">Send Message</button>
+    </form>
+  </div>
+
+  <div class="card contact-info-card">
+    <h3>Contact Information</h3>
+    <p><strong>Address:</strong><br>123 Health St, Kolkata, India</p>
+    <p><strong>Support Email:</strong><br>support@doctorapp.com</p>
+    <p><strong>Support Phone:</strong><br>+91 7477710751</p>
+  </div>
+</div>
+{% endblock %}

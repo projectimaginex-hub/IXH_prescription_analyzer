@@ -1,0 +1,10 @@
+/* --- Profile Page Styles --- */
+.profile-card { text-align: center; }
+.profile-header { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; }
+.profile-picture { border-radius: 50%; border: 4px solid #e0e0e0; }
+.profile-info h2 { margin: 0; }
+.specialization { color: #666; font-style: italic; margin: 5px 0 0; }
+.profile-divider { border: 0; height: 1px; background-color: #eee; margin: 25px 0; }
+.profile-details { text-align: left; }
+.profile-actions { margin-top: 20px; }
+
