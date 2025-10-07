@@ -1,144 +1,191 @@
+/* --- Google Font Import --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 /* --- General Body and Font Styling --- */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     margin: 0;
-    background-color: #f4f7f6;
+    background-color: #f9fafb; /* Very light grey background */
     display: flex;
-    color: #333;
+    color: #111827; /* Near-black for high contrast */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* --- Sidebar --- */
 .sidebar {
-    width: 240px;
-    background-color: #1c2a48; /* Dark Blue */
+    width: 250px;
+    background-color: #111827; /* Deep, dark navy blue */
     color: white;
     height: 100vh;
-    padding: 20px 0;
+    padding: 25px 0;
     position: fixed;
+    border-right: 1px solid #e5e7eb;
 }
 .sidebar h2 {
     text-align: center;
-    padding: 0 20px 20px 20px;
+    padding: 0 25px 25px 25px;
     margin: 0;
-    border-bottom: 1px solid #3a4b6f;
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #ffffff;
+    border-bottom: 1px solid #374151;
 }
 .sidebar a {
     display: block;
-    color: #b0bec5;
-    padding: 15px 30px;
+    color: #d1d5db; /* Light grey for inactive links */
+    padding: 15px 35px;
+    margin: 8px 15px;
     text-decoration: none;
-    transition: background-color 0.3s, color 0.3s;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.25s ease-in-out;
 }
 .sidebar a:hover {
-    background-color: #2a3e63;
+    background-color: #374151; /* Dark grey for hover */
     color: #ffffff;
 }
 .sidebar a.active {
-    background-color: #61b15a; /* Green */
+    background-color: #3b82f6; /* Bright, modern blue */
     color: white;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 /* --- Main Content Area --- */
 .main-content {
-    margin-left: 240px; /* Same as sidebar width */
-    padding: 20px 40px;
-    width: calc(100% - 240px);
+    margin-left: 250px; /* Match sidebar width */
+    padding: 30px 50px;
+    width: calc(100% - 250px);
 }
 .top-bar {
     text-align: right;
-    font-weight: bold;
-    font-size: 1.2em;
-    padding-bottom: 20px;
-    color: #1c2a48;
+    font-weight: 600;
+    font-size: 1.3em;
+    padding-bottom: 25px;
+    color: #9ca3af;
 }
 
 /* --- Reusable Components (Cards & Buttons) --- */
 .card {
     background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    padding: 25px;
+    border-radius: 12px; /* Slightly more pronounced rounding */
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    border: 1px solid #e5e7eb; /* Subtle border */
 }
 .btn {
-    background-color: #007bff;
+    background-color: #3b82f6; /* Bright blue */
     color: white;
     border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
+    padding: 12px 24px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 1em;
-    font-weight: 500;
-    transition: background-color 0.3s;
+    font-weight: 600;
+    transition: all 0.25s ease-in-out;
 }
 .btn:hover {
-    background-color: #0056b3;
+    background-color: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+.btn.record-btn {
+    background-color: #10b981; /* A calming, modern green */
+}
+.btn.record-btn:hover {
+    background-color: #059669;
 }
 
-/* --- Home Page Styles --- */
-.home-header h1, .home-header .tagline { text-align: center; }
-.home-header h1 { margin-bottom: 5px; }
-.home-header .tagline { color: #666; margin-top: 0; }
-.home-container {
-    display: flex;
-    gap: 30px;
-    justify-content: center;
-    margin-top: 40px;
-}
-.home-card { text-align: center; width: 250px; }
-.home-card .icon { font-size: 3em; margin-bottom: 15px; }
-
-/* --- Prescription Page Styles --- */
+/* --- Headers --- */
 .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
+    margin-bottom: 30px;
 }
-.page-header h1 { margin: 0; }
-.blink { animation: blink 1s infinite; color: red; font-weight: bold; }
-@keyframes blink { 50% { opacity: 0; } }
-
-/* This is the key rule for the 2-column layout */
-.content-container {
-    display: grid;
-    grid-template-columns: 2fr 1fr; /* Two columns, first is twice as wide */
-    gap: 30px;
-    align-items: start;
+.page-header h1, .home-header h1 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 2em;
+    color: #111827;
 }
+.home-header { text-align: center; margin-bottom: 40px; }
+.home-header .tagline { color: #6b7280; font-size: 1.1em; }
 
+/* --- Forms --- */
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 20px;
+    gap: 25px;
+    margin-bottom: 25px;
 }
-.form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
-.form-group input, .form-group select {
+.form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #374151; }
+.form-group input, .form-group select, .symptom-input-group input {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
     box-sizing: border-box;
+    font-size: 1em;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
-.section-title { margin-top: 25px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-.symptom-input-group { display: flex; gap: 10px; }
-.symptom-input-group input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-textarea#transcriptionText { width: 100%; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; padding: 8px; resize: vertical; }
-.action-buttons { margin-top: 30px; display: flex; gap: 10px; }
+.form-group input:focus, .form-group select:focus, .symptom-input-group input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+textarea { resize: vertical; }
 
-/* --- History Page Styles --- */
-.filter-container { display: flex; gap: 15px; align-items: center; margin-bottom: 25px; flex-wrap: wrap; }
-.filter-search { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-.filter-dates { display: flex; align-items: center; gap: 8px; }
-.history-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-.history-table th, .history-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-.history-table th { background-color: #f8f9fa; font-weight: 600; }
-.history-table tr:nth-child(even) { background-color: #f2f2f2; }
-.history-table tr:hover { background-color: #e9ecef; }
-.btn-small { padding: 5px 10px; font-size: 0.85em; }
-.pagination { display: flex; justify-content: center; gap: 5px; }
-.pagination a { color: #007bff; padding: 8px 16px; text-decoration: none; border: 1px solid #ddd; border-radius: 4px; transition: background-color 0.3s; }
-.pagination a.active { background-color: #007bff; color: white; border-color: #007bff; }
-.pagination a:hover:not(.active) { background-color: #f2f2f2; }
+/* --- Page-Specific Layouts --- */
+.content-container {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr;
+    gap: 30px;
+    align-items: start;
+}
+.home-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+}
+.home-card { text-align: center; }
+.home-card .icon { font-size: 3.5em; margin-bottom: 15px; color: #3b82f6; }
+
+/* --- Table Styles (History Page) --- */
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 25px 0;
+}
+.history-table th, .history-table td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+.history-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    color: #6b7280;
+    letter-spacing: 0.5px;
+}
+.history-table tr:hover { background-color: #f3f4f6; }
+
+/* --- Misc Styles --- */
+.section-title {
+    margin-top: 30px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+.blink {
+    animation: blink 1.2s infinite;
+    color: #ef4444; /* Red for recording */
+    font-weight: 600;
+}
+@keyframes blink { 50% { opacity: 0.2; } }
+hr { border: 0; height: 1px; background-color: #e5e7eb; margin: 25px 0; }
 
