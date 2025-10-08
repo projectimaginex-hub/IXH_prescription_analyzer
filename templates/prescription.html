@@ -6,6 +6,7 @@
 <header class="page-header">
   <h1>Capture Conversation 🎙️</h1>
   <div class="audio-controls">
+    <button id="refreshBtn" class="btn btn-secondary">🔄 New Session</button>
     <button id="startBtn" class="btn record-btn">Start Recording</button>
     <button id="stopBtn" class="btn" style="display:none;">Stop Recording</button>
     <span id="recordingIndicator" class="blink" style="display:none;">🔴 Recording...</span>
@@ -15,20 +16,19 @@
 <!-- This container holds the TWO main cards -->
 <div class="content-container">
   
-  <!-- Left Card: Contains the form and all manual suggestions -->
-  <div class="card form-card">
-    <form method="post">
-      {% csrf_token %}
-      <div class="form-grid">
-        <div class="form-group"><label>Patient Name:</label><input type="text" name="patientName" value="{{ patient.name }}"></div>
-        <div class="form-group"><label>Phone:</label><input type="text" name="phone" value="{{ patient.phone }}"></div>
-        <div class="form-group"><label>Age:</label><input type="number" name="age" value="{{ patient.age }}"></div>
-        <div class="form-group"><label>Gender:</label><select name="gender"><option {% if patient.gender == 'Male' %}selected{% endif %}>Male</option><option {% if patient.gender == 'Female' %}selected{% endif %}>Female</option><option {% if patient.gender == 'Other' %}selected{% endif %}>Other</option></select></div>
-        <div class="form-group"><label>Blood Grp:</label><input type="text" name="bloodGrp" value="{{ patient.bloodGrp }}"></div>
-        <div class="form-group"><label>Weight:</label><input type="number" name="weight" value="{{ patient.weight }}"></div>
-        <div class="form-group"><label>BP:</label><input type="text" name="bp" value="{{ patient.bp }}"></div>
-      </div>
-    </form>
+  <!-- The <form> tag now wraps this entire card -->
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    
+    <div class="form-grid">
+      <div class="form-group"><label>Patient Name:</label><input type="text" name="patientName"></div>
+      <div class="form-group"><label>Phone:</label><input type="text" name="phone"></div>
+      <div class="form-group"><label>Age:</label><input type="number" name="age"></div>
+      <div class="form-group"><label>Gender:</label><select name="gender"><option>Male</option><option>Female</option><option>Other</option></select></div>
+      <div class="form-group"><label>Blood Grp:</label><input type="text" name="bloodGrp"></div>
+      <div class="form-group"><label>Weight:</label><input type="number" name="weight"></div>
+      <div class="form-group"><label>BP:</label><input type="text" name="bp"></div>
+    </div>
 
     <h3 class="section-title">Symptoms Analysed:</h3>
     <div class="symptom-input-group">
@@ -37,19 +37,18 @@
     </div>
     <div class="symptoms-list" id="symptomsList"></div>
 
-    <!-- This section is now correctly placed inside this card -->
     <h3 class="section-title">Suggested Medicine:</h3>
     <div class="medicine-list" id="medicineList"></div>
 
     <div class="action-buttons">
       <button class="btn" type="button">Verify</button>
-      <button class="btn" type="button">Send</button>
+      <!-- This is now a submit button to send the form data -->
+      <button class="btn" type="submit">Send</button>
     </div>
-  </div>
+  </form>
 
-  <!-- Right Card: Contains only the AI suggestions and results -->
   <div class="card ai-card">
-    <h3>Suggested Medicine</h3>
+    <h3>Suggested Medicine (AI)</h3>
     <div id="aiMedicineList">
        <p>AI suggestions will appear here after analysis.</p>
     </div>
@@ -57,71 +56,92 @@
     <h4>🎙️ Record Result:</h4>
     <audio id="audioPlayback" controls style="width:100%; margin-top:10px;"></audio>
     <h4>📝 Transcribed Text:</h4>
-    <textarea id="transcriptionText" rows="4" style="width:100%;" readonly></textarea>
+    <!-- This textarea now has a name attribute to be included in the form -->
+    <textarea id="transcriptionText" name="transcriptionText" rows="4" style="width:100%;"></textarea>
   </div>
 </div>
 
-<!-- JS Logic for Recording and Transcription -->
+<!-- The JavaScript remains the same -->
 <script>
-  let recognition, mediaRecorder;
-  let audioChunks = [];
-  const startBtn = document.getElementById("startBtn");
-  const stopBtn = document.getElementById("stopBtn");
-  const indicator = document.getElementById("recordingIndicator");
-  const audioPlayback = document.getElementById("audioPlayback");
-  const transcriptionText = document.getElementById("transcriptionText");
+  document.addEventListener('DOMContentLoaded', () => {
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const indicator = document.getElementById("recordingIndicator");
+    const audioPlayback = document.getElementById("audioPlayback");
+    const transcriptionText = document.getElementById("transcriptionText");
+    const refreshBtn = document.getElementById("refreshBtn");
 
-  if ("webkitSpeechRecognition" in window) {
-    recognition = new webkitSpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-IN";
-    recognition.onresult = (event) => {
-      let final_transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          final_transcript += event.results[i][0].transcript;
-        }
-      }
-      transcriptionText.value += final_transcript;
-    };
-  } else {
-    alert("Speech recognition not supported. Please use Google Chrome.");
-  }
+    refreshBtn.addEventListener('click', () => {
+        location.reload();
+    });
 
-  startBtn.addEventListener("click", async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
+    let recognition;
+    let mediaRecorder;
+    let audioChunks = [];
+    let streamReference;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-IN";
+
+        recognition.onresult = (event) => {
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    transcriptionText.value += event.results[i][0].transcript + ' ';
+                    transcriptionText.scrollTop = transcriptionText.scrollHeight;
+                }
+            }
+        };
+        recognition.onerror = (event) => console.error("Speech Recognition Error:", event.error, event.message);
+        recognition.onend = () => console.log("Speech recognition service has disconnected.");
+        
+    } else {
+        console.warn("Speech Recognition not supported in this browser.");
+        startBtn.disabled = true;
+        startBtn.textContent = "Browser Not Supported";
+    }
+
+    startBtn.addEventListener("click", async () => {
+      audioPlayback.src = "";
       transcriptionText.value = "";
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-        const audioURL = URL.createObjectURL(audioBlob);
-        audioPlayback.src = audioURL;
-      };
-      mediaRecorder.start();
-      recognition && recognition.start();
-      startBtn.style.display = "none";
-      stopBtn.style.display = "inline-block";
-      indicator.style.display = "inline-block";
-    } catch (err) {
-      alert("Microphone access was denied or is unavailable.");
-      console.error(err);
-    }
-  });
+      audioChunks = [];
 
-  stopBtn.addEventListener("click", () => {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-    }
-    if (recognition) {
-        recognition.stop();
-    }
-    stopBtn.style.display = "none";
-    startBtn.style.display = "inline-block";
-    indicator.style.display = "none";
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamReference = stream;
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
+        mediaRecorder.addEventListener("stop", () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          audioPlayback.src = audioUrl;
+        });
+
+        mediaRecorder.start();
+        if (recognition) recognition.start();
+        
+        startBtn.style.display = "none";
+        stopBtn.style.display = "inline-block";
+        indicator.style.display = "inline-block";
+
+      } catch (err) {
+        alert("Microphone access was denied. Please allow microphone access in your browser settings.");
+        console.error("Error accessing microphone:", err);
+      }
+    });
+
+    stopBtn.addEventListener("click", () => {
+      if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+      if (recognition) recognition.stop();
+      if (streamReference) streamReference.getTracks().forEach(track => track.stop());
+      
+      startBtn.style.display = "inline-block";
+      stopBtn.style.display = "none";
+      indicator.style.display = "none";
+    });
   });
 </script>
 {% endblock %}

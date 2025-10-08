@@ -30,43 +30,29 @@
       </tr>
     </thead>
     <tbody>
+      <!-- Loop through each prescription passed from the view -->
+      {% for pres in prescriptions %}
       <tr>
-        <td>#001</td>
-        <td>John Doe</td>
-        <td>2025-10-06</td>
-        <td>Fever, Cough, Headache</td>
+        <td>#{{ pres.id }}</td>
+        <td>{{ pres.patient.name }}</td>
+        <td>{{ pres.date_created|date:"Y-m-d" }}</td>
+        <td>
+          <!-- Display a comma-separated list of symptoms -->
+          {{ pres.symptoms.all|join:", " }}
+        </td>
         <td><a href="#" class="btn btn-small">View Details</a></td>
       </tr>
+      {% empty %}
+      <!-- This message shows if there are no prescriptions in the database -->
       <tr>
-        <td>#002</td>
-        <td>Jane Smith</td>
-        <td>2025-10-05</td>
-        <td>Sore Throat, Fatigue</td>
-        <td><a href="#" class="btn btn-small">View Details</a></td>
+        <td colspan="5" style="text-align: center; padding: 20px;">
+          No patient history found. Start by creating a new prescription.
+        </td>
       </tr>
-      <tr>
-        <td>#003</td>
-        <td>Peter Jones</td>
-        <td>2025-10-05</td>
-        <td>Stomach Pain</td>
-        <td><a href="#" class="btn btn-small">View Details</a></td>
-      </tr>
-      <tr>
-        <td>#004</td>
-        <td>Mary Williams</td>
-        <td>2025-10-04</td>
-        <td>Dizziness, Nausea</td>
-        <td><a href="#" class="btn btn-small">View Details</a></td>
-      </tr>
+      {% endfor %}
     </tbody>
   </table>
 
-  <div class="pagination">
-    <a href="#">&laquo; Previous</a>
-    <a href="#" class="active">1</a>
-    <a href="#">2</a>
-    <a href="#">3</a>
-    <a href="#">Next &raquo;</a>
-  </div>
+  <!-- Pagination can be added here later if needed -->
 </div>
 {% endblock %}
