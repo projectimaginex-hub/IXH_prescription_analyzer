@@ -25,29 +25,29 @@
         <th>ID</th>
         <th>Patient Name</th>
         <th>Date</th>
-        <th>Key Symptoms</th>
+        <th>PDF</th>
         <th>Action</th>
       </tr>
     </thead>
     <tbody>
-      <!-- Loop through each prescription passed from the view -->
-      {% for pres in prescriptions %}
+      {% for prescription in prescriptions %}
       <tr>
-        <td>#{{ pres.id }}</td>
-        <td>{{ pres.patient.name }}</td>
-        <td>{{ pres.date_created|date:"Y-m-d" }}</td>
+        <td>#{{ prescription.id }}</td>
+        <td>{{ prescription.patient.name }}</td>
+        <td>{{ prescription.date_created|date:"d M Y, P" }}</td>
         <td>
-          <!-- Display a comma-separated list of symptoms -->
-          {{ pres.symptoms.all|join:", " }}
+          {% if prescription.prescription_file %}
+            <a href="{{ prescription.prescription_file.url }}" target="_blank">View PDF</a>
+          {% else %}
+            No File
+          {% endif %}
         </td>
         <td><a href="#" class="btn btn-small">View Details</a></td>
       </tr>
       {% empty %}
       <!-- This message shows if there are no prescriptions in the database -->
       <tr>
-        <td colspan="5" style="text-align: center; padding: 20px;">
-          No patient history found. Start by creating a new prescription.
-        </td>
+        <td colspan="5" style="text-align: center; padding: 20px;">No history found.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -56,3 +56,4 @@
   <!-- Pagination can be added here later if needed -->
 </div>
 {% endblock %}
+

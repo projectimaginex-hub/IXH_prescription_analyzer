@@ -16,8 +16,7 @@
 <!-- This container holds the TWO main cards -->
 <div class="content-container">
   
-  <!-- The <form> tag now wraps this entire card -->
-  <form class="card form-card" method="post">
+  <form id="prescriptionForm" class="card form-card" method="post">
     {% csrf_token %}
     
     <div class="form-grid">
@@ -26,9 +25,11 @@
       <div class="form-group"><label>Age:</label><input type="number" name="age"></div>
       <div class="form-group"><label>Gender:</label><select name="gender"><option>Male</option><option>Female</option><option>Other</option></select></div>
       <div class="form-group"><label>Blood Grp:</label><input type="text" name="bloodGrp"></div>
-      <div class="form-group"><label>Weight:</label><input type="number" name="weight"></div>
+      <div class="form-group"><label>Weight:</label><input type="text" name="weight"></div>
       <div class="form-group"><label>BP:</label><input type="text" name="bp"></div>
     </div>
+
+    <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
 
     <h3 class="section-title">Symptoms Analysed:</h3>
     <div class="symptom-input-group">
@@ -41,9 +42,7 @@
     <div class="medicine-list" id="medicineList"></div>
 
     <div class="action-buttons">
-      <button class="btn" type="button">Verify</button>
-      <!-- This is now a submit button to send the form data -->
-      <button class="btn" type="submit">Send</button>
+      <button class="btn" type="submit">Generate & Download PDF</button>
     </div>
   </form>
 
@@ -56,12 +55,11 @@
     <h4>🎙️ Record Result:</h4>
     <audio id="audioPlayback" controls style="width:100%; margin-top:10px;"></audio>
     <h4>📝 Transcribed Text:</h4>
-    <!-- This textarea now has a name attribute to be included in the form -->
-    <textarea id="transcriptionText" name="transcriptionText" rows="4" style="width:100%;"></textarea>
+    <textarea id="transcriptionText" rows="4" style="width:100%;"></textarea>
   </div>
 </div>
 
-<!-- The JavaScript remains the same -->
+<!-- === ROBUST JS LOGIC FOR RECORDING --- UPDATED === -->
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById("startBtn");
@@ -70,15 +68,21 @@
     const audioPlayback = document.getElementById("audioPlayback");
     const transcriptionText = document.getElementById("transcriptionText");
     const refreshBtn = document.getElementById("refreshBtn");
-
-    refreshBtn.addEventListener('click', () => {
-        location.reload();
-    });
+    const prescriptionForm = document.getElementById("prescriptionForm");
+    const hiddenTranscriptionText = document.getElementById("hiddenTranscriptionText");
 
     let recognition;
     let mediaRecorder;
     let audioChunks = [];
     let streamReference;
+
+    prescriptionForm.addEventListener('submit', () => {
+        hiddenTranscriptionText.value = transcriptionText.value;
+    });
+
+    refreshBtn.addEventListener('click', () => {
+        location.reload();
+    });
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -88,6 +92,7 @@
         recognition.lang = "en-IN";
 
         recognition.onresult = (event) => {
+            console.log("Speech recognition result received.");
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
                     transcriptionText.value += event.results[i][0].transcript + ' ';
@@ -145,4 +150,4 @@
   });
 </script>
 {% endblock %}
-
+```

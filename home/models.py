@@ -35,6 +35,9 @@ class Prescription(models.Model):
     # THIS FIELD IS NOW OPTIONAL
     transcribed_text = models.TextField(blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
+    
+    # NEW FIELD to store the generated PDF file.
+    prescription_file = models.FileField(upload_to='prescriptions/', blank=True, null=True)
 
     def __str__(self):
         return f"Prescription for {self.patient.name} on {self.date_created.strftime('%Y-%m-%d')}"
