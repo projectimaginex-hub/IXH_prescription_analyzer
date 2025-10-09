@@ -16,6 +16,10 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('contact/', views.contact, name='contact'),
     path('help/', views.help, name='help'),
+    
+     # --- NEW URL FOR SENDING SMS ---
+    # The <int:prescription_id> part is a variable that will hold the ID of the prescription to send
+    path('send-sms/<int:prescription_id>/', views.send_sms, name='send-sms'),
 
 ]
 

@@ -1,18 +1,21 @@
 import io
+from django.utils import timezone
 from django.shortcuts import render, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.core.files.base import ContentFile
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from .models import Patient, Prescription
+# Note: Twilio integration would require configuration in settings.py
+# from twilio.rest import Client
 
 def home(request):
     return render(request, "home.html")
 
 def prescription(request):
     if request.method == 'POST':
-        # 1. Get Patient data
+        # This view now handles the "Verify" button submission
         patient_name = request.POST.get('patientName')
         phone = request.POST.get('phone')
         age = request.POST.get('age')
@@ -22,37 +25,23 @@ def prescription(request):
         blood_pressure = request.POST.get('bp')
         transcribed_text = request.POST.get('transcriptionText')
 
-        # 2. More robust validation for numeric fields
-        # This ensures empty strings are converted to None (NULL in DB)
-        age_val = None
-        try:
-            if age: age_val = int(age)
-        except (ValueError, TypeError):
-            pass # Keep age_val as None if conversion fails
-
-        weight_val = None
-        try:
-            # Check for empty string explicitly
-            if weight: weight_val = float(weight)
-        except (ValueError, TypeError):
-            pass # Keep weight_val as None if conversion fails
+        # Robust validation
+        age_val = int(age) if age and age.isdigit() else None
+        weight_val = float(weight) if weight and weight.replace('.','',1).isdigit() else None
         
-        # 3. Create and save the Patient object
         patient = Patient.objects.create(
-            name=patient_name,
-            phone=phone,
-            age=age_val,
-            gender=gender,
-            blood_group=blood_group,
-            weight=weight_val
+            name=patient_name, phone=phone, age=age_val,
+            gender=gender, blood_group=blood_group, weight=weight_val
         )
 
-        # 4. Create and SAVE the prescription object FIRST
-        new_prescription = Prescription.objects.create(
+        # Create the prescription object but DON'T save it yet
+        new_prescription = Prescription(
             patient=patient,
             doctor=request.user if request.user.is_authenticated else None,
             blood_pressure=blood_pressure,
-            transcribed_text=transcribed_text
+            transcribed_text=transcribed_text,
+            is_verified=True,          # Set the verification flag
+            verified_at=timezone.now() # Record the verification time
         )
 
         # --- PDF Generation ---
@@ -62,7 +51,7 @@ def prescription(request):
         p.drawString(1 * inch, 10.5 * inch, "Medical Prescription")
         p.setFont("Helvetica", 12)
         p.drawString(1 * inch, 10.2 * inch, f"Doctor: {new_prescription.doctor.get_full_name() if new_prescription.doctor else 'Dr. ABC DEF'}")
-        p.drawString(1 * inch, 10.0 * inch, f"Date: {new_prescription.date_created.strftime('%Y-%m-%d %H:%M')}")
+        p.drawString(1 * inch, 10.0 * inch, f"Date: {new_prescription.verified_at.strftime('%Y-%m-%d %H:%M')}")
         p.line(1 * inch, 9.9 * inch, 7.5 * inch, 9.9 * inch)
         p.setFont("Helvetica-Bold", 12)
         p.drawString(1 * inch, 9.6 * inch, "Patient Information")
@@ -73,29 +62,55 @@ def prescription(request):
         p.setFont("Helvetica-Bold", 12)
         p.drawString(1 * inch, 8.5 * inch, "Consultation Notes")
         p.setFont("Helvetica", 12)
-        text = p.beginText(1.2 * inch, 8.3 * inch)
-        text.setFont("Helvetica", 11)
-        text.setLeading(14)
-        notes = new_prescription.transcribed_text or "No transcribed notes available."
+        text_object = p.beginText(1.2 * inch, 8.3 * inch)
+        notes = new_prescription.transcribed_text or "No transcribed notes."
         for line in notes.split('\n'):
-            text.textLine(line)
-        p.drawText(text)
+            text_object.textLine(line)
+        p.drawText(text_object)
         p.showPage()
         p.save()
         
         pdf = buffer.getvalue()
         buffer.close()
 
-        # 5. Save the PDF to the model
-        filename = f'prescription_{patient.id}_{new_prescription.id}.pdf'
-        new_prescription.prescription_file.save(filename, ContentFile(pdf), save=True)
+        # Save the generated PDF to the model instance
+        filename = f'prescription_{patient.id}_{timezone.now().strftime("%Y%m%d%H%M%S")}.pdf'
+        new_prescription.prescription_file.save(filename, ContentFile(pdf))
+        # The model is saved here for the first and only time
 
-        # 6. Prepare and return the HTTP response for download
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+        return redirect('prescription')
 
     return render(request, "prescription.html", {})
+
+def send_sms(request, prescription_id):
+    # This is a placeholder for the "Send" button functionality
+    if request.method == 'POST':
+        try:
+            prescription = Prescription.objects.get(id=prescription_id)
+            patient_phone = prescription.patient.phone
+            
+            if not patient_phone:
+                return JsonResponse({'status': 'error', 'message': 'Patient phone number is not available.'}, status=400)
+                
+            # --- TWILIO LOGIC WOULD GO HERE ---
+            # account_sid = 'YOUR_TWILIO_ACCOUNT_SID'
+            # auth_token = 'YOUR_TWILIO_AUTH_TOKEN'
+            # client = Client(account_sid, auth_token)
+            # message = client.messages.create(
+            #     body=f"Hello {prescription.patient.name}, your prescription is ready. View it here: {request.build_absolute_uri(prescription.prescription_file.url)}",
+            #     from_='YOUR_TWILIO_PHONE_NUMBER',
+            #     to=patient_phone
+            # )
+            # print(f"SMS Sent! SID: {message.sid}")
+            # --- END TWILIO LOGIC ---
+
+            # For now, we'll just simulate success
+            return JsonResponse({'status': 'success', 'message': f"Prescription link would be sent to {patient_phone}."})
+
+        except Prescription.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Prescription not found.'}, status=404)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
 
 def history(request):
     all_prescriptions = Prescription.objects.all().order_by('-date_created')
@@ -110,3 +125,4 @@ def contact(request):
 
 def help(request):
     return render(request, 'help.html')
+
