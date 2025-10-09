@@ -55,9 +55,13 @@ class Prescription(models.Model):
     symptoms = models.ManyToManyField(Symptom, blank=True)
     medicines = models.ManyToManyField(Medicine, blank=True)
     blood_pressure = models.CharField(max_length=20, blank=True)
-    # THIS FIELD IS NOW OPTIONAL
     transcribed_text = models.TextField(blank=True)
+    prescription_file = models.FileField(upload_to='prescriptions/', blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True)
+
+    # --- NEW FIELDS FOR E-SIGNATURE ---
+    is_verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Prescription for {self.patient.name} on {self.date_created.strftime('%Y-%m-%d')}"

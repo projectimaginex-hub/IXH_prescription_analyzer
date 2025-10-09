@@ -129,6 +129,10 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Add these two lines at the very bottom of your settings.py file
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/profile/'

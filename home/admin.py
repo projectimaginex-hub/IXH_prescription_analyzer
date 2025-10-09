@@ -1,4 +1,5 @@
 from django.contrib import admin
+<<<<<<< HEAD
 from .models import Doctor, Patient, Medicine, Symptom, Prescription
 
 
@@ -18,15 +19,19 @@ class DoctorAdmin(admin.ModelAdmin):
         }),
     )
 
+=======
+from .models import Patient, Prescription, Medicine, Symptom
+>>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
 
 @admin.register(Patient)
-class PatientAdmin(admin.ModelAdmin):  # CORRECTED: Was admin.admin.ModelAdmin
+class PatientAdmin(admin.ModelAdmin):
     """
     Customizes the admin interface for the Patient model.
     """
     list_display = ('name', 'age', 'gender', 'phone', 'date_created')
     search_fields = ('name', 'phone')
     list_filter = ('gender', 'date_created')
+    readonly_fields = ('date_created',)
 
 
 @admin.register(Medicine)
@@ -49,15 +54,71 @@ class SymptomAdmin(admin.ModelAdmin):
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
     """
-    Customizes the admin interface for the Prescription model.
+    Customizes the admin interface for the Prescription model to show related Patient data.
     """
-    list_display = ('patient', 'doctor', 'date_created', 'blood_pressure')
-    search_fields = ('patient__name', 'doctor__username')
-    list_filter = ('date_created', 'doctor')
+
+    # --- Functions to get related Patient attributes for display ---
+    def get_patient_name(self, obj):
+        return obj.patient.name
+    get_patient_name.short_description = 'Patient Name'
+
+    def get_patient_phone(self, obj):
+        return obj.patient.phone
+    get_patient_phone.short_description = 'Patient Phone'
+    
+    def get_patient_age(self, obj):
+        return obj.patient.age
+    get_patient_age.short_description = 'Patient Age'
+
+    def get_patient_gender(self, obj):
+        return obj.patient.gender
+    get_patient_gender.short_description = 'Gender'
+
+    def get_patient_weight(self, obj):
+        return obj.patient.weight
+    get_patient_weight.short_description = 'Weight (kg)'
+
+    def get_patient_blood_group(self, obj):
+        return obj.patient.blood_group
+    get_patient_blood_group.short_description = 'Blood Group'
+
+    def get_blood_pressure(self, obj):
+        return obj.blood_pressure
+    get_blood_pressure.short_description = 'BP'
+
+    def get_symptoms_analysed(self, obj):
+        # Joins the names of all related symptoms into a single string
+        return ", ".join([s.name for s in obj.symptoms.all()])
+    get_symptoms_analysed.short_description = 'Symptoms Analysed'
+
+
+    # --- UPDATED: 'list_display' now shows all the requested data ---
+    list_display = (
+        'id',
+        'get_patient_name',
+        'get_patient_age',
+        'get_patient_gender',
+        'get_patient_weight',
+        'get_patient_blood_group',
+        'get_blood_pressure',
+        'get_symptoms_analysed',
+        'date_created',
+        'is_verified',
+    )
+    
+    # --- The rest of the configuration remains the same ---
+    search_fields = ('patient__name', 'doctor__username', 'symptoms__name')
+    list_filter = ('date_created', 'is_verified', 'doctor')
     autocomplete_fields = ('patient', 'doctor', 'symptoms', 'medicines')
+    
+    readonly_fields = ('date_created', 'verified_at')
+
     fieldsets = (
-        (None, {
-            'fields': ('patient', 'doctor')
+        ('Primary Information', {
+            'fields': ('patient', 'doctor', 'date_created')
+        }),
+        ('Verification Details', {
+            'fields': ('is_verified', 'verified_at', 'prescription_file')
         }),
         ('Consultation Details', {
             'fields': ('blood_pressure', 'transcribed_text')
