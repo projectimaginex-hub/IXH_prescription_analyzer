@@ -1,5 +1,6 @@
+from .models import Patient, Prescription, Medicine, Symptom
 from django.contrib import admin
-<<<<<<< HEAD
+
 from .models import Doctor, Patient, Medicine, Symptom, Prescription
 
 
@@ -19,9 +20,6 @@ class DoctorAdmin(admin.ModelAdmin):
         }),
     )
 
-=======
-from .models import Patient, Prescription, Medicine, Symptom
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
@@ -65,7 +63,7 @@ class PrescriptionAdmin(admin.ModelAdmin):
     def get_patient_phone(self, obj):
         return obj.patient.phone
     get_patient_phone.short_description = 'Patient Phone'
-    
+
     def get_patient_age(self, obj):
         return obj.patient.age
     get_patient_age.short_description = 'Patient Age'
@@ -91,7 +89,6 @@ class PrescriptionAdmin(admin.ModelAdmin):
         return ", ".join([s.name for s in obj.symptoms.all()])
     get_symptoms_analysed.short_description = 'Symptoms Analysed'
 
-
     # --- UPDATED: 'list_display' now shows all the requested data ---
     list_display = (
         'id',
@@ -105,12 +102,12 @@ class PrescriptionAdmin(admin.ModelAdmin):
         'date_created',
         'is_verified',
     )
-    
+
     # --- The rest of the configuration remains the same ---
     search_fields = ('patient__name', 'doctor__username', 'symptoms__name')
     list_filter = ('date_created', 'is_verified', 'doctor')
     autocomplete_fields = ('patient', 'doctor', 'symptoms', 'medicines')
-    
+
     readonly_fields = ('date_created', 'verified_at')
 
     fieldsets = (
