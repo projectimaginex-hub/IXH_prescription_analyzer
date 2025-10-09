@@ -1,5 +1,23 @@
 from django.contrib import admin
-from .models import Patient, Medicine, Symptom, Prescription
+from .models import Doctor, Patient, Medicine, Symptom, Prescription
+
+
+@admin.register(Doctor)
+class DoctorAdmin(admin.ModelAdmin):
+    list_display = ('first_name', 'specialization',
+                    'phone', 'email', 'experience')
+    search_fields = ('first_name', 'specialization', 'email')
+    list_filter = ('specialization',)
+    ordering = ('first_name',)
+    fieldsets = (
+        ("Doctor Info", {
+            "fields": ('user', 'first_name', 'specialization', 'experience')
+        }),
+        ("Contact Details", {
+            "fields": ('email', 'phone', 'profile_picture')
+        }),
+    )
+
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):  # CORRECTED: Was admin.admin.ModelAdmin
@@ -10,6 +28,7 @@ class PatientAdmin(admin.ModelAdmin):  # CORRECTED: Was admin.admin.ModelAdmin
     search_fields = ('name', 'phone')
     list_filter = ('gender', 'date_created')
 
+
 @admin.register(Medicine)
 class MedicineAdmin(admin.ModelAdmin):
     """
@@ -18,12 +37,14 @@ class MedicineAdmin(admin.ModelAdmin):
     list_display = ('name', 'description')
     search_fields = ('name',)
 
+
 @admin.register(Symptom)
 class SymptomAdmin(admin.ModelAdmin):
     """
     Customizes the admin interface for the Symptom model.
     """
     search_fields = ('name',)
+
 
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
@@ -45,4 +66,3 @@ class PrescriptionAdmin(admin.ModelAdmin):
             'fields': ('symptoms', 'medicines')
         }),
     )
-

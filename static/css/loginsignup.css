@@ -1,0 +1,179 @@
+/* ===== AUTH CARD MINIMAL STYLE ===== */
+.auth-wrapper {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f2f5f9;
+  }
+  
+  .auth-card {
+    background: #fff;
+    padding: 1.4rem 1.6rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+  }
+  
+  .auth-card h2 {
+    color: #1565c0;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+  }
+  
+  .form-group {
+    text-align: left;
+    margin-bottom: 0.8rem;
+  }
+  
+  .form-group label {
+    font-size: 0.85rem;
+    color: #333;
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    outline: none;
+  }
+  
+  .form-group input:focus {
+    border-color: #1565c0;
+    box-shadow: 0 0 3px rgba(21, 101, 192, 0.3);
+  }
+  
+  .error-msg {
+    color: #d32f2f;
+    font-size: 0.75rem;
+    margin-top: 3px;
+  }
+  
+  .btn {
+    width: 100%;
+    padding: 8px;
+    background: #1565c0;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: background 0.3s ease;
+  }
+  
+  .btn:hover {
+    background: #0d47a1;
+  }
+  
+  .switch-text {
+    font-size: 0.8rem;
+    margin-top: 10px;
+  }
+  
+  .switch-text a {
+    color: #1565c0;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  
+  .switch-text a:hover {
+    text-decoration: underline;
+  }
+
+
+
+
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+}
+
+/* ===== Form Card ===== */
+.signup-card {
+    max-width: 500px;
+    margin: 0 auto 3rem auto;
+    background: #fff;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.signup-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Form Fields ===== */
+.signup-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.signup-card label {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.3rem;
+}
+
+.signup-card input,
+.signup-card select,
+.signup-card textarea {
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.signup-card input:focus,
+.signup-card select:focus,
+.signup-card textarea:focus {
+    border-color: #61b15a;
+    box-shadow: 0 0 5px rgba(97, 177, 90, 0.4);
+    outline: none;
+}
+
+/* ===== Buttons ===== */
+.signup-card button {
+    background: #61b15a;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 0.7rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.signup-card button:hover {
+    background: #4d9749;
+    transform: scale(1.05);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+    .signup-card {
+        padding: 1.5rem;
+    }
+}
+
+
+  
