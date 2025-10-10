@@ -23,8 +23,10 @@ urlpatterns = [
 
     
      # --- NEW URL FOR SENDING SMS ---
+
+
+    # --- NEW URL FOR SENDING SMS ---
     # The <int:prescription_id> part is a variable that will hold the ID of the prescription to send
     path('send-sms/<int:prescription_id>/', views.send_sms, name='send-sms'),
-
 
 ]
