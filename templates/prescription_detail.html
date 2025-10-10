@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Consultation Details - Doctor App{% endblock %}
+
+{% block content %}
+
+<style>
+.detail-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+gap: 2rem;
+}
+.detail-card {
+background-color: #fff;
+border-radius: 12px;
+padding: 1.5rem;
+box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+.detail-card h3 {
+margin-top: 0;
+margin-bottom: 1rem;
+color: #111827;
+border-bottom: 2px solid #f3f4f6;
+padding-bottom: 0.5rem;
+}
+.detail-card p {
+margin: 0.5rem 0;
+color: #374151;
+line-height: 1.6;
+}
+.detail-card strong {
+color: #1f2937;
+}
+.transcription-box {
+background-color: #f9fafb;
+border: 1px solid #e5e7eb;
+border-radius: 8px;
+padding: 1rem;
+white-space: pre-wrap;
+font-family: monospace;
+max-height: 300px;
+overflow-y: auto;
+}
+</style>
+
+<header class="page-header">
+<h1>📄 Consultation Details</h1>
+</header>
+
+<div class="detail-grid">
+<div class="detail-card">
+<h3>Patient Information</h3>
+<p><strong>Name:</strong> {{ prescription.patient.name }}</p>
+<p><strong>Phone:</strong> {{ prescription.patient.phone }}</p>
+<p><strong>Age:</strong> {{ prescription.patient.age|default:"N/A" }}</p>
+<p><strong>Gender:</strong> {{ prescription.patient.gender|default:"N/A" }}</p>
+</div>
+
+<div class="detail-card">
+    <h3>Vitals</h3>
+    <p><strong>Blood Group:</strong> {{ prescription.patient.blood_group|default:"N/A" }}</p>
+    <p><strong>Weight:</strong> {{ prescription.patient.weight|default:"N/A" }} kg</p>
+    <p><strong>Blood Pressure:</strong> {{ prescription.blood_pressure|default:"N/A" }}</p>
+</div>
+
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+<h3>Consultation Notes (Transcription)</h3>
+<div class="transcription-box">
+<p>{{ prescription.transcribed_text|default:"No transcription available." }}</p>
+</div>
+{% if prescription.prescription_file %}
+<a href="{{ prescription.prescription_file.url }}" target="_blank" class="btn" style="margin-top: 1rem;">View Generated PDF</a>
+{% endif %}
+</div>
+{% endblock %}

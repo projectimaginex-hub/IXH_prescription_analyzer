@@ -100,6 +100,8 @@ def prescription(request):
             patient=patient, doctor=doctor, blood_pressure=blood_pressure,
             transcribed_text=transcribed_text, is_verified=True, verified_at=timezone.now()
         )
+        
+        
 
         
         # --- 3. GENERATE THE PDF (NOW THAT DATA IS SAVED) ---
@@ -172,6 +174,14 @@ def prescription(request):
       # This is for the GET request (initial page load)
     return render(request, "prescription.html", {})
 
+@login_required
+def prescription_detail(request, prescription_id):
+    try:
+        prescription = Prescription.objects.get(id=prescription_id)
+    except Prescription.DoesNotExist:
+        return redirect('history')  # Redirect if prescription not found
+
+    return render(request, 'prescription_detail.html', {'prescription': prescription})
 
 
 # --- OTHER VIEWS REMAIN THE SAME ---
@@ -254,3 +264,5 @@ def send_sms(request, prescription_id):
             return JsonResponse({'status': 'error', 'message': 'Prescription not found.'}, status=404)
             
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+
