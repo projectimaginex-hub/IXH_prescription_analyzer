@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from .forms import UserForm, DoctorForm
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
@@ -7,19 +6,6 @@ from django.contrib.auth import login, authenticate, logout
 from django.shortcuts import render, redirect
 from .models import Patient, Prescription, Doctor
 
-=======
-import io
-from django.utils import timezone
-from django.shortcuts import render, redirect
-from django.http import HttpResponse, JsonResponse
-from django.core.files.base import ContentFile
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
-from .models import Patient, Prescription
-# Note: Twilio integration would require configuration in settings.py
-# from twilio.rest import Client
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
 
 def home(request):
     return render(request, "home.html")
@@ -35,7 +21,6 @@ def prescription(request):
         gender = request.POST.get('gender')
         blood_group = request.POST.get('bloodGrp')
         weight = request.POST.get('weight')
-<<<<<<< HEAD
 
         patient = Patient.objects.create(
             name=patient_name,
@@ -47,8 +32,6 @@ def prescription(request):
                 '.', '', 1).isdigit() else None
         )
 
-=======
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
         blood_pressure = request.POST.get('bp')
         transcribed_text = request.POST.get('transcriptionText')
 
@@ -70,11 +53,8 @@ def prescription(request):
             is_verified=True,          # Set the verification flag
             verified_at=timezone.now() # Record the verification time
         )
-<<<<<<< HEAD
 
         return redirect('history')
-=======
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
 
         # --- PDF Generation ---
         buffer = io.BytesIO()
@@ -114,51 +94,12 @@ def prescription(request):
 
     return render(request, "prescription.html", {})
 
-<<<<<<< HEAD
 
 @login_required
-=======
-def send_sms(request, prescription_id):
-    # This is a placeholder for the "Send" button functionality
-    if request.method == 'POST':
-        try:
-            prescription = Prescription.objects.get(id=prescription_id)
-            patient_phone = prescription.patient.phone
-            
-            if not patient_phone:
-                return JsonResponse({'status': 'error', 'message': 'Patient phone number is not available.'}, status=400)
-                
-            # --- TWILIO LOGIC WOULD GO HERE ---
-            # account_sid = 'YOUR_TWILIO_ACCOUNT_SID'
-            # auth_token = 'YOUR_TWILIO_AUTH_TOKEN'
-            # client = Client(account_sid, auth_token)
-            # message = client.messages.create(
-            #     body=f"Hello {prescription.patient.name}, your prescription is ready. View it here: {request.build_absolute_uri(prescription.prescription_file.url)}",
-            #     from_='YOUR_TWILIO_PHONE_NUMBER',
-            #     to=patient_phone
-            # )
-            # print(f"SMS Sent! SID: {message.sid}")
-            # --- END TWILIO LOGIC ---
-
-            # For now, we'll just simulate success
-            return JsonResponse({'status': 'success', 'message': f"Prescription link would be sent to {patient_phone}."})
-
-        except Prescription.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Prescription not found.'}, status=404)
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
-
-
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
 def history(request):
     all_prescriptions = Prescription.objects.all().order_by('-date_created')
     return render(request, 'history.html', {'prescriptions': all_prescriptions})
 
-<<<<<<< HEAD
-=======
-def profile(request):
-    doctor_data = {'name': 'Dr. ABC DEF', 'specialization': 'General Physician', 'email': 'dr.abc.def@example.com', 'phone': '+91 12345 67890'}
-    return render(request, 'profile.html', {'doctor': doctor_data})
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
 
 def contact(request):
     return render(request, 'contact.html')
@@ -167,7 +108,6 @@ def contact(request):
 def help(request):
     return render(request, 'help.html')
 
-<<<<<<< HEAD
 
 def signup_view(request):
     if request.method == 'POST':
@@ -218,5 +158,3 @@ def profile(request):
     doctor = Doctor.objects.filter(user=request.user).first()
     print(doctor)
     return render(request, 'profile.html', {'doctor': doctor})
-=======
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6

@@ -1,5 +1,4 @@
 from django.contrib import admin
-<<<<<<< HEAD
 from .models import Doctor, Patient, Medicine, Symptom, Prescription
 
 
@@ -19,9 +18,6 @@ class DoctorAdmin(admin.ModelAdmin):
         }),
     )
 
-=======
-from .models import Patient, Prescription, Medicine, Symptom
->>>>>>> b06d3982be81bd3d4195144fe17aa000fa68a3a6
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
