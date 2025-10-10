@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-
 {% block title %}Prescription - Doctor App{% endblock %}
 
 {% block content %}
@@ -15,22 +14,21 @@
 
 <div class="content-container">
   
-  <form id="prescriptionForm" class="card form-card" method="post" action="{% url 'prescription' %}">
+  <!-- The form no longer needs an action attribute, JS will handle it -->
+  <form id="prescriptionForm" class="card form-card">
     {% csrf_token %}
-    
     <div class="form-grid">
       <div class="form-group"><label>Patient Name:</label><input type="text" name="patientName" required></div>
-      <div class="form-group"><label>Phone:</label><input type="text" name="phone" required></div>
+      <div class="form-group"><label>Phone:</label><input type="text" name="phone" placeholder="+91..." required></div>
       <div class="form-group"><label>Age:</label><input type="number" name="age"></div>
       <div class="form-group"><label>Gender:</label><select name="gender"><option>Male</option><option>Female</option><option>Other</option></select></div>
       <div class="form-group"><label>Blood Grp:</label><input type="text" name="bloodGrp"></div>
       <div class="form-group"><label>Weight:</label><input type="text" name="weight"></div>
       <div class="form-group"><label>BP:</label><input type="text" name="bp"></div>
     </div>
-
     <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
-
-    <h3 class="section-title">Symptoms Analysed:</h3>
+    
+     <h3 class="section-title">Symptoms Analysed:</h3>
     <div class="symptom-input-group">
       <input type="text" id="symptomInput" placeholder="Enter symptom">
       <button class="btn" type="button">Add Symptom</button>
@@ -40,11 +38,13 @@
     <h3 class="section-title">Suggested Medicine:</h3>
     <div class="medicine-list" id="medicineList"></div>
 
+    
+
     <div class="action-buttons">
-      <button class="btn" type="submit"> Verify & Save</button>
-      <button id="sendBtn" class="btn btn-secondary" type="button" disabled> Send to Patient</button>
+      <button class="btn" type="submit">✍️ Verify & Save</button>
+      <button id="sendBtn" class="btn btn-secondary" type="button" disabled>📤 Send to Patient</button>
     </div>
-    <p id="statusMessage" style="margin-top: 15px;"></p>
+    <p id="statusMessage" style="margin-top: 15px; font-weight: 500;"></p>
   </form>
 
   <div class="card ai-card">
@@ -71,6 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById("refreshBtn");
     const prescriptionForm = document.getElementById("prescriptionForm");
     const hiddenTranscriptionText = document.getElementById("hiddenTranscriptionText");
+
+    // --- THIS LINE IS NOW CORRECTED ---
+    // It finds the hidden CSRF token input rendered by Django and gets its value.
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
 
     let mediaRecorder;
     let audioChunks = [];
@@ -149,6 +154,84 @@ document.addEventListener('DOMContentLoaded', () => {
       startBtn.style.display = "inline-block";
       stopBtn.style.display = "none";
       indicator.style.display = "none";
+    });
+
+    
+    // --- NEW SESSION BUTTON ---
+    refreshBtn.addEventListener('click', () => {
+        location.reload();
+    });
+    
+    // --- 1. HANDLE "VERIFY & SAVE" ---
+    prescriptionForm.addEventListener('submit', async (event) => {
+        event.preventDefault(); // Stop the page from reloading
+        statusMessage.textContent = 'Verifying and generating PDF...';
+        statusMessage.style.color = '#6b7280';
+        sendBtn.disabled = true;
+
+        hiddenTranscriptionText.value = transcriptionText.value;
+        const formData = new FormData(prescriptionForm);
+
+        try {
+            const response = await fetch("{% url 'prescription' %}", {
+                method: 'POST',
+                body: formData,
+                // No 'Content-Type' header needed for FormData; browser sets it
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                statusMessage.textContent = data.message + " You can now send the SMS.";
+                statusMessage.style.color = '#10b981';
+                // Store the new prescription ID on the send button for later use
+                sendBtn.dataset.prescriptionId = data.prescription_id;
+                sendBtn.disabled = false; // Enable the send button
+            } else {
+                throw new Error(data.message || 'An unknown error occurred.');
+            }
+        } catch (error) {
+            statusMessage.textContent = 'Error: ' + error.message;
+            statusMessage.style.color = '#ef4444';
+            console.error('Form submission error:', error);
+        }
+    });
+
+    // --- 2. HANDLE "SEND TO PATIENT" ---
+    sendBtn.addEventListener('click', async () => {
+        const prescriptionId = sendBtn.dataset.prescriptionId;
+        if (!prescriptionId) {
+            alert('Please verify and save a prescription first.');
+            return;
+        }
+
+        statusMessage.textContent = 'Sending SMS...';
+        sendBtn.disabled = true;
+
+        const url = `/send-sms/${prescriptionId}/`;
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                statusMessage.textContent = data.message;
+                statusMessage.style.color = '#10b981';
+            } else {
+                throw new Error(data.message || 'Failed to send SMS.');
+            }
+        } catch (error) {
+            statusMessage.textContent = 'Error: ' + error.message;
+            statusMessage.style.color = '#ef4444';
+            sendBtn.disabled = false; // Re-enable button on failure
+            console.error('Send SMS error:', error);
+        }
     });
 });
 </script>

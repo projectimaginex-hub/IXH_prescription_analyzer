@@ -139,3 +139,10 @@ LOGIN_REDIRECT_URL = '/profile/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 ASSEMBLYAI_API_KEY = 'd0908e0ad0f546078cdbd9b323099229'
+
+# --- TWILIO CONFIGURATION ---
+# Replace with your actual credentials from the Twilio dashboard
+
+TWILIO_ACCOUNT_SID = 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+TWILIO_AUTH_TOKEN = 'your_auth_token'
+TWILIO_PHONE_NUMBER = '+15017122661' # Your Twilio phone number

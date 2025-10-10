@@ -15,6 +15,7 @@ from .forms import UserForm, DoctorForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
+from twilio.rest import Client
 
 # --- ASSEMBLYAI API CONFIG ---
 ASSEMBLYAI_UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
@@ -64,10 +65,11 @@ def transcribe_audio(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 # --- CORRECTED PRESCRIPTION VIEW ---
+
 @login_required
 def prescription(request):
     """
-    Handles the 'Verify & Save' submission with corrected logic.
+    Handles the 'Verify & Save' submission via an asynchronous request (AJAX).
     """
     if request.method == 'POST':
         # --- 1. GATHER AND VALIDATE DATA ---
@@ -83,7 +85,7 @@ def prescription(request):
         age_val = int(age) if age and age.isdigit() else None
         weight_val = float(weight) if weight and weight.replace('.', '', 1).isdigit() else None
 
-        # --- 2. CREATE AND SAVE THE DATABASE OBJECTS ---
+        # --- 2. CREATE DATABASE OBJECTS ---
         patient = Patient.objects.create(
             name=patient_name, phone=phone, age=age_val,
             gender=gender, blood_group=blood_group, weight=weight_val
@@ -94,17 +96,12 @@ def prescription(request):
         except Doctor.DoesNotExist:
             doctor = None
 
-        # Create and save the Prescription. This is the crucial step.
-        # After this line runs, all fields are guaranteed to have a value.
         new_prescription = Prescription.objects.create(
-            patient=patient,
-            doctor=doctor,
-            blood_pressure=blood_pressure,
-            transcribed_text=transcribed_text,
-            is_verified=True,
-            verified_at=timezone.now()
+            patient=patient, doctor=doctor, blood_pressure=blood_pressure,
+            transcribed_text=transcribed_text, is_verified=True, verified_at=timezone.now()
         )
 
+        
         # --- 3. GENERATE THE PDF (NOW THAT DATA IS SAVED) ---
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
@@ -164,9 +161,15 @@ def prescription(request):
         filename = f'prescription_{patient.id}_{new_prescription.id}.pdf'
         new_prescription.prescription_file.save(filename, ContentFile(pdf_data), save=True)
         
-        return redirect('prescription')
-
-    # This is for the GET request
+        
+         # --- 5. RETURN A JSON RESPONSE INSTEAD OF REDIRECTING ---
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Prescription verified and saved!',
+            'prescription_id': new_prescription.id
+        })
+        
+      # This is for the GET request (initial page load)
     return render(request, "prescription.html", {})
 
 
@@ -216,6 +219,38 @@ def profile(request):
     return render(request, 'profile.html', {'doctor': doctor})
 
 # Placeholder for SMS
-def send_sms(request, prescription_id):
-    return JsonResponse({'status': 'info', 'message': 'SMS functionality not fully implemented.'})
 
+@login_required
+def send_sms(request, prescription_id):
+    """
+    This view is called by the frontend's AJAX request when the 'Send' button is clicked.
+    """
+    if request.method == 'POST':
+        try:
+            prescription = Prescription.objects.get(id=prescription_id)
+            patient_phone = prescription.patient.phone
+            
+            if not patient_phone:
+                return JsonResponse({'status': 'error', 'message': 'Patient phone number is not available.'}, status=400)
+            
+            pdf_url = request.build_absolute_uri(prescription.prescription_file.url)
+            
+            # --- TWILIO SMS LOGIC ---
+            try:
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                doctor_name = f"Dr. {prescription.doctor.first_name}" if prescription.doctor else "the clinic"
+                message_body = f"Hello {prescription.patient.name}, your prescription from {doctor_name} is ready. View it here: {pdf_url}"
+                
+                message = client.messages.create(
+                    body=message_body,
+                    from_=settings.TWILIO_PHONE_NUMBER,
+                    to=patient_phone
+                )
+                return JsonResponse({'status': 'success', 'message': f"SMS sent successfully to {patient_phone}."})
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': f'Failed to send SMS via Twilio.'}, status=500)
+
+        except Prescription.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Prescription not found.'}, status=404)
+            
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
