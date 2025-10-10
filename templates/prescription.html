@@ -40,17 +40,15 @@
     <h3 class="section-title">Suggested Medicine:</h3>
     <div class="medicine-list" id="medicineList"></div>
 
-    <!-- === UPDATED BUTTONS === -->
     <div class="action-buttons">
-      <button class="btn" type="submit">✍️ Verify & Save</button>
-      <button id="sendBtn" class="btn btn-secondary" type="button" disabled>📤 Send to Patient</button>
+      <button class="btn" type="submit"> Verify & Save</button>
+      <button id="sendBtn" class="btn btn-secondary" type="button" disabled> Send to Patient</button>
     </div>
     <p id="statusMessage" style="margin-top: 15px;"></p>
-
   </form>
 
   <div class="card ai-card">
-    <h3>Suggested Medicine (AI)</h3>
+    <h3>Suggested Medicine</h3>
     <div id="aiMedicineList">
        <p>AI suggestions will appear here after analysis.</p>
     </div>
@@ -62,59 +60,53 @@
   </div>
 </div>
 
+<!-- === FINAL JAVASCRIPT LOGIC --- ASSEMBLYAI INTEGRATION === -->
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const prescriptionForm = document.getElementById("prescriptionForm");
-    const hiddenTranscriptionText = document.getElementById("hiddenTranscriptionText");
-    const transcriptionText = document.getElementById("transcriptionText");
+document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
-    const refreshBtn = document.getElementById("refreshBtn");
     const indicator = document.getElementById("recordingIndicator");
     const audioPlayback = document.getElementById("audioPlayback");
+    const transcriptionText = document.getElementById("transcriptionText");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const prescriptionForm = document.getElementById("prescriptionForm");
+    const hiddenTranscriptionText = document.getElementById("hiddenTranscriptionText");
 
-    let recognition;
     let mediaRecorder;
     let audioChunks = [];
     let streamReference;
 
     // --- BUTTON EVENT LISTENERS ---
-
-    // Reloads the page for a new session
-    refreshBtn.addEventListener('click', () => {
-        location.reload();
-    });
-
-    // Before the form submits, copy the transcript text into the hidden field
+    refreshBtn.addEventListener('click', () => { location.reload(); });
     prescriptionForm.addEventListener('submit', () => {
         hiddenTranscriptionText.value = transcriptionText.value;
     });
 
-    // --- SPEECH RECOGNITION & RECORDING LOGIC ---
+    // --- NEW TRANSCRIPTION FUNCTION ---
+    const getTranscription = async (audioBlob) => {
+        transcriptionText.value = "Transcribing, please wait...";
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-IN";
-
-        recognition.onresult = (event) => {
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    transcriptionText.value += event.results[i][0].transcript + ' ';
-                    transcriptionText.scrollTop = transcriptionText.scrollHeight;
-                }
+        try {
+            const response = await fetch("{% url 'transcribe-audio' %}", {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                transcriptionText.value = data.text;
+            } else {
+                throw new Error(data.message || 'Transcription failed.');
             }
-        };
-        recognition.onerror = (event) => console.error("Speech Recognition Error:", event.error, event.message);
-        recognition.onend = () => console.log("Speech recognition service has disconnected.");
-    } else {
-        console.warn("Speech Recognition not supported in this browser.");
-        startBtn.disabled = true;
-        startBtn.textContent = "Browser Not Supported";
-    }
+        } catch (error) {
+            console.error('Transcription error:', error);
+            transcriptionText.value = "Error: " + error.message;
+            alert("Error during transcription: " + error.message);
+        }
+    };
 
+    // --- RECORDING LOGIC ---
     startBtn.addEventListener("click", async () => {
       audioPlayback.src = "";
       transcriptionText.value = "";
@@ -122,33 +114,43 @@
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamReference = stream;
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+        mediaRecorder.addEventListener("dataavailable", event => {
+            audioChunks.push(event.data);
+        });
+
         mediaRecorder.addEventListener("stop", () => {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
           const audioUrl = URL.createObjectURL(audioBlob);
           audioPlayback.src = audioUrl;
+          
+          // Send the audio blob for transcription
+          getTranscription(audioBlob);
         });
+
         mediaRecorder.start();
-        if (recognition) recognition.start();
         startBtn.style.display = "none";
         stopBtn.style.display = "inline-block";
         indicator.style.display = "inline-block";
       } catch (err) {
-        alert("Microphone access was denied. Please allow microphone access in your browser settings.");
+        alert("Microphone access was denied or is unavailable.");
         console.error("Error accessing microphone:", err);
       }
     });
 
     stopBtn.addEventListener("click", () => {
-      if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
-      if (recognition) recognition.stop();
-      if (streamReference) streamReference.getTracks().forEach(track => track.stop());
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+      }
+      if (streamReference) {
+        streamReference.getTracks().forEach(track => track.stop());
+      }
       startBtn.style.display = "inline-block";
       stopBtn.style.display = "none";
       indicator.style.display = "none";
     });
-  });
+});
 </script>
 {% endblock %}
 

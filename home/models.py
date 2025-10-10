@@ -62,6 +62,11 @@ class Prescription(models.Model):
     # --- NEW FIELDS FOR E-SIGNATURE ---
     is_verified = models.BooleanField(default=False)
     verified_at = models.DateTimeField(null=True, blank=True)
+    
+     # --- NEW FIELDS FOR STORING FILES LOCALLY ---
+    audio_recording = models.FileField(upload_to='audio_recordings/', blank=True, null=True)
+    transcript_file = models.FileField(upload_to='transcripts/', blank=True, null=True)
+
 
     def __str__(self):
         return f"Prescription for {self.patient.name} on {self.date_created.strftime('%Y-%m-%d')}"
