@@ -1,9 +1,14 @@
 {% extends 'base.html' %}
-{% block title %}Login{% endblock %}
+{% load socialaccount %} {% block title %}Login{% endblock %}
 
 {% block content %}
 <div class="auth-container">
   <h2>👤 Login</h2>
+
+  <a href="{% provider_login_url 'google' %}" class="btn btn-google">
+    Sign in with Google
+  </a>
+  <div class="or-separator">OR</div>
   <form method="POST">
     {% csrf_token %}
     {{ form.as_p }}
@@ -11,4 +16,24 @@
   </form>
   <p>Don't have an account? <a href="{% url 'signup' %}">Signup here</a>.</p>
 </div>
+
+<style>
+  .btn-google {
+    background-color: #4285F4;
+    color: white;
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    margin-bottom: 1rem;
+  }
+  .btn-google:hover {
+    background-color: #357ae8;
+  }
+  .or-separator {
+    text-align: center;
+    color: #999;
+    margin-bottom: 1rem;
+    font-weight: bold;
+  }
+</style>
 {% endblock %}

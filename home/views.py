@@ -73,6 +73,8 @@ def prescription(request):
     """
     if request.method == 'POST':
         # --- 1. GATHER AND VALIDATE DATA ---
+        audio_file = request.FILES.get('audio_file') # Assume JS sends this
+        transcribed_text = request.POST.get('transcriptionText')
         patient_name = request.POST.get('patientName')
         phone = request.POST.get('phone')
         age = request.POST.get('age')
@@ -102,7 +104,15 @@ def prescription(request):
         )
         
         
+         # --- 3. SAVE THE FILES ---
+        if audio_file:
+            new_prescription.audio_recording.save(
+                f'rec_{patient.id}_{new_prescription.id}.webm', audio_file, save=True)
 
+        if transcribed_text:
+            transcript_content = ContentFile(transcribed_text.encode('utf-8'))
+            new_prescription.transcript_file.save(
+                f'transcript_{patient.id}_{new_prescription.id}.txt', transcript_content, save=True)
         
         # --- 3. GENERATE THE PDF (NOW THAT DATA IS SAVED) ---
         buffer = io.BytesIO()
