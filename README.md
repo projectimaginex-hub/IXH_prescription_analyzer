@@ -1,14 +1,14 @@
-#Prescription Analyzer  🩺 
+# Prescription Analyzer  🩺 
 
 An AI-Powered Platform to Assist Doctors by Analyzing Patient Sessions and Suggesting Medicines
 
 
-#Overview  🚀 
+# Overview  🚀 
 
 Prescription Analyzer is an intelligent assistant designed to support doctors during patient consultations. It captures doctor-patient interactions, analyzes symptoms in real-time, and provides medicine suggestions based on the identified symptoms. This platform helps improve efficiency, accuracy, and patient care.
 
 
-#Features  ✨ 
+# Features  ✨ 
 
 🎙 **Session Capture**.
 
@@ -21,21 +21,12 @@ Prescription Analyzer is an intelligent assistant designed to support doctors du
 🔐 **Data Security**.
 
 
-#Architecture  🏗 
+# Architecture  🏗 
 
-Patient Session (Text/Voice) 
-           │
-           ▼
-     Symptom Extraction (NLP/AI)
-           │
-           ▼
-   Medicine Recommendation (AI Model)
-           │
-           ▼
-   Doctor Dashboard / Report
+Patient Session (Text/Voice) -> Symptom Extraction (NLP/AI) -> Medicine Recommendation (AI Model) -> Doctor Dashboard / Report
 
 
-#Usage  🧑‍⚕️ 
+# Usage  🧑‍⚕️ 
 
 The Prescription Analyzer serves as a smart digital assistant for doctors, helping them in multiple ways:
 
