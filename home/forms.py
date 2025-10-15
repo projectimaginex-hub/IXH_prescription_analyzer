@@ -16,3 +16,9 @@ class DoctorForm(forms.ModelForm):
         model = Doctor
         fields = ['first_name', 'last_name', 'specialization', 'phone',
                   'email', 'experience', 'profile_picture']
+
+class DoctorProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = Doctor
+        fields = ['first_name', 'last_name', 'specialization', 
+                  'phone', 'email', 'experience', 'profile_picture']

@@ -30,6 +30,8 @@ class PatientAdmin(admin.ModelAdmin):
     search_fields = ('name', 'phone')
     list_filter = ('gender', 'date_created')
     readonly_fields = ('date_created',)
+    list_display = ('name', 'email', 'age', 'gender', 'phone', 'date_created') # <-- ADD 'email'
+    search_fields = ('name', 'phone', 'email') # <-- ADD 'email'
 
 
 @admin.register(Medicine)
@@ -124,3 +126,5 @@ class PrescriptionAdmin(admin.ModelAdmin):
             'fields': ('symptoms', 'medicines')
         }),
     )
+
+

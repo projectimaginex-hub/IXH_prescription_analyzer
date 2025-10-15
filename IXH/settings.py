@@ -97,6 +97,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'home.context_processors.doctor_profile',
             ],
         },
     },
@@ -176,6 +177,11 @@ ASSEMBLYAI_API_KEY = 'd0908e0ad0f546078cdbd9b323099229'
 # --- TWILIO CONFIGURATION ---
 # Replace with your actual credentials from the Twilio dashboard
 
-TWILIO_ACCOUNT_SID = 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-TWILIO_AUTH_TOKEN = 'your_auth_token'
-TWILIO_PHONE_NUMBER = '+15017122661' # Your Twilio phone number
+# --- DJANGO EMAIL CONFIGURATION (using Gmail) ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'project.imaginex@gmail.com'  # <-- Your full Gmail address
+EMAIL_HOST_PASSWORD = 'hqqxdjqhfaewhvmt' # <-- Your Gmail App Password
+

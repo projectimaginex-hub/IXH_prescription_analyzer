@@ -24,6 +24,7 @@ urlpatterns = [
     path('', include('home.urls')),
      # Add this line for django-allauth
     path('accounts/', include('allauth.urls')),
+    
 ]
 
 # This new line tells Django to serve files from your MEDIA_ROOT folder when in DEBUG mode.

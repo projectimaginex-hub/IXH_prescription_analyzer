@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 class Patient(models.Model):
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=15, blank=True)
+    email = models.EmailField(blank=True, null=True)
     age = models.PositiveIntegerField(null=True, blank=True)
     gender = models.CharField(max_length=10, blank=True)
     blood_group = models.CharField(max_length=5, blank=True)

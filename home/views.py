@@ -2,6 +2,7 @@ import io
 import time
 import requests
 from django.utils import timezone
+from django.core.mail import EmailMessage
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
@@ -15,6 +16,7 @@ from .forms import UserForm, DoctorForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
+
 from twilio.rest import Client
 
 # --- ASSEMBLYAI API CONFIG ---
@@ -75,6 +77,7 @@ def prescription(request):
         # --- 1. GATHER AND VALIDATE DATA ---
         audio_file = request.FILES.get('audio_file') # Assume JS sends this
         transcribed_text = request.POST.get('transcriptionText')
+        email = request.POST.get('email') # <-- GET THE EMAIL
         patient_name = request.POST.get('patientName')
         phone = request.POST.get('phone')
         age = request.POST.get('age')
@@ -89,7 +92,7 @@ def prescription(request):
 
         # --- 2. CREATE DATABASE OBJECTS ---
         patient = Patient.objects.create(
-            name=patient_name, phone=phone, age=age_val,
+            name=patient_name, phone=phone, age=age_val, email=email, # <-- SAVE THE EMAIL
             gender=gender, blood_group=blood_group, weight=weight_val
         )
 
@@ -276,3 +279,76 @@ def send_sms(request, prescription_id):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 
+# --- ADD THIS NEW VIEW AT THE END OF THE FILE ---
+# home/views.py
+
+# home/views.py
+
+@login_required
+def send_email(request, prescription_id):
+    print("\n--- [DEBUG] SEND EMAIL VIEW TRIGGERED ---")
+    if request.method == 'POST':
+        try:
+            print(f"[DEBUG] Finding prescription with ID: {prescription_id}")
+            prescription = Prescription.objects.get(id=prescription_id)
+            patient_email = prescription.patient.email
+            print(f"[DEBUG] Found patient email: '{patient_email}'")
+
+            if not patient_email:
+                print("[DEBUG] ERROR: Patient email is blank.")
+                return JsonResponse({'status': 'error', 'message': 'Patient email address is not available.'}, status=400)
+            
+            if not prescription.prescription_file or not prescription.prescription_file.path:
+                print("[DEBUG] ERROR: Prescription PDF file not found or not saved to disk.")
+                return JsonResponse({'status': 'error', 'message': 'No prescription PDF found to send.'}, status=400)
+            
+            print(f"[DEBUG] PDF file path found: {prescription.prescription_file.path}")
+
+            try:
+                print("[DEBUG] Preparing to send email...")
+                doctor_name = f"Dr. {prescription.doctor.first_name}" if prescription.doctor else "the clinic"
+                subject = f"Your Prescription from {doctor_name}"
+                body = f"Hello {prescription.patient.name},\n\nPlease find your prescription attached.\n\nThank you,\n{doctor_name}"
+                
+                email = EmailMessage(subject, body, settings.EMAIL_HOST_USER, [patient_email])
+                
+                print("[DEBUG] Attaching PDF file to email...")
+                email.attach_file(prescription.prescription_file.path)
+                
+                print("[DEBUG] Executing email.send()...")
+                email.send()
+                
+                print("[DEBUG] SUCCESS: email.send() command finished.")
+                return JsonResponse({'status': 'success', 'message': f'Email sent successfully to {patient_email}.'})
+            except Exception as e:
+                print(f"\n !!! [DEBUG] CRITICAL ERROR during email sending: {e}\n")
+                return JsonResponse({'status': 'error', 'message': 'Failed to send email. Check server log for details.'}, status=500)
+
+        except Prescription.DoesNotExist:
+            print(f"[DEBUG] ERROR: Prescription with ID {prescription_id} not found.")
+            return JsonResponse({'status': 'error', 'message': 'Prescription not found.'}, status=404)
+            
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+# home/views.py
+from django.shortcuts import render, redirect, get_object_or_404
+# Add the new form to your imports
+from .forms import UserForm, DoctorForm, DoctorProfileUpdateForm
+# ... (other imports and views) ...
+
+@login_required
+def edit_profile(request):
+    # Ensure the user has a doctor profile, redirecting if not
+    doctor_profile = get_object_or_404(Doctor, user=request.user)
+
+    if request.method == 'POST':
+        # Pass 'instance=doctor_profile' to update the existing record
+        form = DoctorProfileUpdateForm(request.POST, request.FILES, instance=doctor_profile)
+        if form.is_valid():
+            form.save()
+            return redirect('profile') # Redirect back to the profile page on success
+    else:
+        # Pre-populate the form with the doctor's current data
+        form = DoctorProfileUpdateForm(instance=doctor_profile)
+
+    return render(request, 'edit_profile.html', {'form': form})
