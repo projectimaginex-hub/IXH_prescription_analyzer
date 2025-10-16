@@ -1,22 +1,24 @@
 from .models import Patient, Prescription, Medicine, Symptom
 from django.contrib import admin
 
-from .models import Doctor, Patient, Medicine, Symptom, Prescription
+from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio
 
 
 @admin.register(Doctor)
 class DoctorAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'specialization',
-                    'phone', 'email', 'experience')
-    search_fields = ('first_name', 'specialization', 'email')
-    list_filter = ('specialization',)
-    ordering = ('first_name',)
+    # --- UPDATED: Added new fields to the display ---
+    list_display = ('first_name', 'last_name', 'specialization', 'phone', 'email')
+    search_fields = ('first_name', 'last_name', 'email')
     fieldsets = (
-        ("Doctor Info", {
-            "fields": ('user', 'first_name', 'specialization', 'experience')
+        ("Professional Info", {
+            "fields": ('user', 'first_name', 'last_name', 'specialization', 'experience')
+        }),
+        # --- UPDATED: Added new fields to a new fieldset ---
+        ("Profile Details", {
+            "fields": ('about', 'professional_details', 'profile_picture', 'signature')
         }),
         ("Contact Details", {
-            "fields": ('email', 'phone', 'profile_picture')
+            "fields": ('email', 'phone')
         }),
     )
 
@@ -50,6 +52,12 @@ class SymptomAdmin(admin.ModelAdmin):
     """
     search_fields = ('name',)
 
+# --- NEW: Register the Audio model with the admin site ---
+@admin.register(Audio)
+class AudioAdmin(admin.ModelAdmin):
+    list_display = ('id', 'date_created')
+    readonly_fields = ('date_created',)
+    search_fields = ('id', 'transcribed_text')
 
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
@@ -106,25 +114,25 @@ class PrescriptionAdmin(admin.ModelAdmin):
     )
 
     # --- The rest of the configuration remains the same ---
-    search_fields = ('patient__name', 'doctor__username', 'symptoms__name')
+    list_display = ('id', 'patient', 'doctor', 'date_created', 'is_verified')
+    search_fields = ('patient__name', 'doctor__first_name')
     list_filter = ('date_created', 'is_verified', 'doctor')
-    autocomplete_fields = ('patient', 'doctor', 'symptoms', 'medicines')
-
+    autocomplete_fields = ('patient', 'doctor', 'symptoms', 'medicines', 'audio')
     readonly_fields = ('date_created', 'verified_at')
 
     fieldsets = (
         ('Primary Information', {
             'fields': ('patient', 'doctor', 'date_created')
         }),
+        
         ('Verification Details', {
             'fields': ('is_verified', 'verified_at', 'prescription_file')
         }),
+    # --- UPDATED: Added the new audio link ---
         ('Consultation Details', {
-            'fields': ('blood_pressure', 'transcribed_text')
+            'fields': ('blood_pressure', 'symptoms', 'medicines', 'audio')
         }),
-        ('Diagnoses & Treatments', {
-            'fields': ('symptoms', 'medicines')
-        }),
+       
     )
 
 
