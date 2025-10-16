@@ -14,17 +14,55 @@
 
 <div class="content-container">
   
-  <form id="prescriptionForm" class="card form-card">
+  <form id="prescriptionForm" class="card form-card" novalidate>
     {% csrf_token %}
     <div class="form-grid">
-      <div class="form-group"><label>Patient Name:</label><input type="text" name="patientName" required></div>
-      <div class="form-group"><label>Email:</label><input type="email" name="email" placeholder="patient@example.com"></div>
-      <div class="form-group"><label>Phone:</label><input type="text" name="phone" placeholder="+91..." required></div>
-      <div class="form-group"><label>Age:</label><input type="number" name="age"></div>
-      <div class="form-group"><label>Gender:</label><select name="gender"><option>Male</option><option>Female</option><option>Other</option></select></div>
-      <div class="form-group"><label>Blood Grp:</label><input type="text" name="bloodGrp"></div>
-      <div class="form-group"><label>Weight:</label><input type="text" name="weight"></div>
-      <div class="form-group"><label>BP:</label><input type="text" name="bp"></div>
+      <div class="form-group">
+        <label>Patient Name:</label>
+        <input type="text" name="patientName" id="patientName" required>
+        <span class="error-message" id="nameError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Email:</label>
+        <input type="email" name="email" id="email" placeholder="patient@example.com">
+        <span class="error-message" id="emailError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Phone:</label>
+        <input type="text" name="phone" id="phone" placeholder="+91..." required>
+        <span class="error-message" id="phoneError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Age:</label>
+        <input type="number" name="age" id="age">
+        <span class="error-message" id="ageError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Gender:</label>
+        <select name="gender"><option>Male</option><option>Female</option><option>Other</option></select>
+      </div>
+
+      <div class="form-group">
+        <label>Blood Grp:</label>
+        <input type="text" name="bloodGrp" id="bloodGrp" placeholder="e.g., A+, O-">
+        <span class="error-message" id="bloodGrpError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Weight (kg):</label>
+        <input type="text" name="weight" id="weight">
+        <span class="error-message" id="weightError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>BP (e.g. 120/80):</label>
+        <input type="text" name="bp" id="bp">
+        <span class="error-message" id="bpError"></span>
+      </div>
     </div>
     <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
     
@@ -63,6 +101,20 @@
 <style>
   .symptoms-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; min-height: 20px; }
   .symptom-tag { background-color: #e0e7ff; color: #4338ca; padding: 5px 10px; border-radius: 12px; font-size: 0.9em; font-weight: 500; }
+  
+  /* Styling for the validation error messages */
+  .error-message {
+    color: #ef4444; /* Red */
+    font-size: 0.85em;
+    font-weight: 500;
+    display: block;
+    margin-top: 5px;
+    min-height: 1em; /* Prevents layout shifts */
+  }
+  .form-group input.invalid {
+    border-color: #ef4444;
+    background-color: #fee2e2;
+  }
 </style>
 
 <script>
@@ -84,6 +136,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioPlayback = document.getElementById("audioPlayback");
     let mediaRecorder, audioChunks = [], streamReference;
 
+    // --- VALIDATION FIELD REFERENCES ---
+    const patientName = document.getElementById('patientName');
+    const email = document.getElementById('email');
+    const phone = document.getElementById('phone');
+    const age = document.getElementById('age');
+    const bloodGrp = document.getElementById('bloodGrp');
+    const weight = document.getElementById('weight');
+    const bp = document.getElementById('bp');
+    const nameError = document.getElementById('nameError');
+    const emailError = document.getElementById('emailError');
+    const phoneError = document.getElementById('phoneError');
+    const ageError = document.getElementById('ageError');
+    const bloodGrpError = document.getElementById('bloodGrpError');
+    const weightError = document.getElementById('weightError');
+    const bpError = document.getElementById('bpError');
+
+    // === VALIDATION LOGIC ===
+    const validateField = (field, errorElement, validationFn) => {
+        const isValid = validationFn(field.value.trim());
+        if (!isValid) {
+            field.classList.add('invalid');
+            errorElement.textContent = field.dataset.errorMessage || 'Invalid input.';
+        } else {
+            field.classList.remove('invalid');
+            errorElement.textContent = '';
+        }
+        return isValid;
+    };
+
+    const isName = (value) => /^[a-zA-Z\s\.']+$/.test(value);
+    const isEmail = (value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const isPhone = (value) => /^\+?[0-9\s-]{10,15}$/.test(value);
+    const isAge = (value) => value === '' || (!isNaN(value) && value > 0 && value < 120);
+    const isBloodGroup = (value) => value === '' || /^(A|B|AB|O)[\+-]$/i.test(value);
+    const isWeight = (value) => value === '' || (!isNaN(value) && value > 0 && value < 500);
+    const isBP = (value) => value === '' || /^\d{2,3}\/\d{2,3}$/.test(value);
+
+    patientName.dataset.errorMessage = 'Please enter a valid name (letters and spaces only).';
+    phone.dataset.errorMessage = 'Please enter a valid 10-digit phone number.';
+    email.dataset.errorMessage = 'Please enter a valid email address.';
+    age.dataset.errorMessage = 'Please enter a valid age.';
+    bloodGrp.dataset.errorMessage = 'Valid formats: A+, O-, AB+, etc.';
+    weight.dataset.errorMessage = 'Please enter a valid weight in kg.';
+    bp.dataset.errorMessage = 'Valid format: 120/80.';
+
+    patientName.addEventListener('input', () => validateField(patientName, nameError, isName));
+    phone.addEventListener('input', () => validateField(phone, phoneError, isPhone));
+    email.addEventListener('input', () => validateField(email, emailError, isEmail));
+    age.addEventListener('input', () => validateField(age, ageError, isAge));
+    bloodGrp.addEventListener('input', () => validateField(bloodGrp, bloodGrpError, isBloodGroup));
+    weight.addEventListener('input', () => validateField(weight, weightError, isWeight));
+    bp.addEventListener('input', () => validateField(bp, bpError, isBP));
+
     // === Event Listeners ===
     refreshBtn.addEventListener('click', () => location.reload());
 
@@ -100,6 +205,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     prescriptionForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+
+        const isNameValid = validateField(patientName, nameError, isName);
+        const isPhoneValid = validateField(phone, phoneError, isPhone);
+        const isEmailValid = validateField(email, emailError, isEmail);
+        const isAgeValid = validateField(age, ageError, isAge);
+        const isBloodGroupValid = validateField(bloodGrp, bloodGrpError, isBloodGroup);
+        const isWeightValid = validateField(weight, weightError, isWeight);
+        const isBPValid = validateField(bp, bpError, isBP);
+
+        if (!isNameValid || !isPhoneValid || !isEmailValid || !isAgeValid || !isBloodGroupValid || !isWeightValid || !isBPValid) {
+            statusMessage.textContent = 'Please fix the errors before saving.';
+            statusMessage.style.color = '#ef4444';
+            return;
+        }
+        
         statusMessage.textContent = 'Verifying and generating PDF...';
         sendEmailBtn.disabled = true;
         hiddenTranscriptionText.value = transcriptionText.value;
@@ -187,3 +307,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
+

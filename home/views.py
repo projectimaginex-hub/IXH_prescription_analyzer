@@ -16,6 +16,8 @@ from .forms import UserForm, DoctorForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
+from .models import Patient, Prescription, Doctor, Symptom
+
 
 from twilio.rest import Client
 
@@ -116,6 +118,8 @@ def prescription(request):
             transcript_content = ContentFile(transcribed_text.encode('utf-8'))
             new_prescription.transcript_file.save(
                 f'transcript_{patient.id}_{new_prescription.id}.txt', transcript_content, save=True)
+            
+     
         
         # --- 3. GENERATE THE PDF (NOW THAT DATA IS SAVED) ---
         buffer = io.BytesIO()
@@ -150,6 +154,7 @@ def prescription(request):
         p.drawString(3.5 * inch, height - 3.0 * inch, f"Weight: {patient.weight or 'N/A'} kg")
         p.drawString(1.1 * inch, height - 3.2 * inch, f"Blood Pressure: {new_prescription.blood_pressure or 'N/A'}")
         
+    
         # ... (rest of your PDF drawing code remains the same)
         p.line(0.8 * inch, height - 3.4 * inch, width - 0.8 * inch, height - 3.4 * inch)
         p.setFont("Helvetica-Bold", 12)
@@ -165,7 +170,7 @@ def prescription(request):
         p.drawRightString(width - 1 * inch, 1.6 * inch, "Doctor’s Signature")
         p.setFont("Helvetica-Oblique", 9)
         p.drawCentredString(width / 2.0, 0.8 * inch, "Digitally verified prescription • Imaginex Health System © 2025")
-
+    
         # Finalize the PDF
         p.showPage()
         p.save()
