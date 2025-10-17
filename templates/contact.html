@@ -10,23 +10,44 @@
 <div class="content-container">
   <div class="card contact-form-card">
     <h3>Send us a Message</h3>
-    <form>
+
+    <!-- Display Success Messages -->
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-success" style="background-color: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <!-- UPDATED FORM TO RENDER DJANGO FORM AND ERRORS -->
+    <form id="contactForm" method="POST" action="{% url 'contact' %}" novalidate>
+      {% csrf_token %}
+      
       <div class="form-group">
-        <label>Your Name:</label>
-        <input type="text" name="name" required>
+        <label for="{{ form.name.id_for_label }}">Your Name:</label>
+        {{ form.name }}
+        <span class="error-message" id="nameError">{{ form.name.errors.0 }}</span>
       </div>
+      
       <div class="form-group">
-        <label>Your Email:</label>
-        <input type="email" name="email" required>
+        <label for="{{ form.email.id_for_label }}">Your Email:</label>
+        {{ form.email }}
+        <span class="error-message" id="emailError">{{ form.email.errors.0 }}</span>
       </div>
+      
       <div class="form-group">
-        <label>Subject:</label>
-        <input type="text" name="subject" required>
+        <label for="{{ form.subject.id_for_label }}">Subject:</label>
+        {{ form.subject }}
+        <span class="error-message" id="subjectError">{{ form.subject.errors.0 }}</span>
       </div>
+      
       <div class="form-group">
-        <label>Message:</label>
-        <textarea name="message" rows="5" required></textarea>
+        <label for="{{ form.message.id_for_label }}">Message:</label>
+        {{ form.message }}
+        <span class="error-message" id="messageError">{{ form.message.errors.0 }}</span>
       </div>
+      
       <button type="submit" class="btn">Send Message</button>
     </form>
   </div>
@@ -38,4 +59,87 @@
     <p><strong>Support Phone:</strong><br>+91 7477710751</p>
   </div>
 </div>
+
+<style>
+  .error-message {
+    color: #ef4444;
+    font-size: 0.85em;
+    font-weight: 500;
+    display: block;
+    margin-top: 5px;
+    min-height: 1em;
+  }
+  .form-group input.invalid, .form-group textarea.invalid {
+    border-color: #ef4444;
+    background-color: #fee2e2;
+  }
+</style>
+
+<!-- CLIENT-SIDE (JAVASCRIPT) VALIDATION SCRIPT -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const contactForm = document.getElementById('contactForm');
+  
+  const nameField = document.querySelector('[name="name"]');
+  const emailField = document.querySelector('[name="email"]');
+  const subjectField = document.querySelector('[name="subject"]');
+  const messageField = document.querySelector('[name="message"]');
+
+  const nameError = document.getElementById('nameError');
+  const emailError = document.getElementById('emailError');
+  const subjectError = document.getElementById('subjectError');
+  const messageError = document.getElementById('messageError');
+
+  contactForm.addEventListener('submit', (event) => {
+    let isValid = true;
+
+    // Clear previous JS errors
+    nameError.textContent = '';
+    emailError.textContent = '';
+    subjectError.textContent = '';
+    messageError.textContent = '';
+    nameField.classList.remove('invalid');
+    emailField.classList.remove('invalid');
+    subjectField.classList.remove('invalid');
+    messageField.classList.remove('invalid');
+
+    // Validate Name
+    if (nameField.value.trim() === '') {
+      nameError.textContent = 'Please enter your name.';
+      nameField.classList.add('invalid');
+      isValid = false;
+    }
+
+    // Validate Email
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailField.value.trim() === '') {
+      emailError.textContent = 'Please enter your email address.';
+      emailField.classList.add('invalid');
+      isValid = false;
+    } else if (!emailPattern.test(emailField.value.trim())) {
+      emailError.textContent = 'Please enter a valid email address.';
+      emailField.classList.add('invalid');
+      isValid = false;
+    }
+
+    // Validate Subject
+    if (subjectField.value.trim() === '') {
+      subjectError.textContent = 'Please enter a subject.';
+      subjectField.classList.add('invalid');
+      isValid = false;
+    }
+
+    // Validate Message
+    if (messageField.value.trim() === '') {
+      messageError.textContent = 'Please enter your message.';
+      messageField.classList.add('invalid');
+      isValid = false;
+    }
+
+    if (!isValid) {
+      event.preventDefault(); // Stop the form from submitting
+    }
+  });
+});
+</script>
 {% endblock %}

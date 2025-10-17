@@ -95,3 +95,18 @@ class Prescription(models.Model):
 
     def __str__(self):
         return f"Prescription for {self.patient.name} on {self.date_created.strftime('%Y-%m-%d')}"
+
+
+# --- NEW MODEL FOR CONTACT MESSAGES ---
+class ContactSubmission(models.Model):
+    """
+    Stores a message sent through the Contact Us form.
+    """
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Message from {self.name} - {self.subject}"

@@ -3,6 +3,7 @@ import time
 import requests
 from django.utils import timezone
 from django.core.mail import EmailMessage
+from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
@@ -10,13 +11,16 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from .forms import ContactForm
 from reportlab.lib.units import inch
 from .models import Patient, Prescription, Doctor
 from .forms import UserForm, DoctorForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
-from .models import Patient, Prescription, Doctor, Symptom
+from django.core.paginator import Paginator
+from django.db.models import Q
+from .models import Patient, Prescription, Doctor, Symptom, Medicine, Audio , ContactSubmission
 
 
 from twilio.rest import Client
@@ -77,7 +81,9 @@ def prescription(request):
     """
     if request.method == 'POST':
         # --- 1. GATHER AND VALIDATE DATA ---
-        audio_file = request.FILES.get('audio_file') # Assume JS sends this
+       # 1. Gather data from the incoming POST request
+        # --- FIXED: Get the audio file from the request ---
+        audio_file = request.FILES.get('audio')
         transcribed_text = request.POST.get('transcriptionText')
         email = request.POST.get('email') # <-- GET THE EMAIL
         patient_name = request.POST.get('patientName')
@@ -91,7 +97,9 @@ def prescription(request):
 
         age_val = int(age) if age and age.isdigit() else None
         weight_val = float(weight) if weight and weight.replace('.', '', 1).isdigit() else None
-
+        
+        
+      
         # --- 2. CREATE DATABASE OBJECTS ---
         patient = Patient.objects.create(
             name=patient_name, phone=phone, age=age_val, email=email, # <-- SAVE THE EMAIL
@@ -102,10 +110,11 @@ def prescription(request):
             doctor = request.user.doctor
         except Doctor.DoesNotExist:
             doctor = None
-
+        
         new_prescription = Prescription.objects.create(
             patient=patient, doctor=doctor, blood_pressure=blood_pressure,
             transcribed_text=transcribed_text, is_verified=True, verified_at=timezone.now()
+      
         )
         
         
@@ -130,7 +139,7 @@ def prescription(request):
         p.setFont("Helvetica-Bold", 20)
         p.drawCentredString(width / 2.0, height - 1 * inch, "🏥 IMAGINEX HEALTH CLINIC")
         p.setFont("Helvetica", 11)
-        p.drawCentredString(width / 2.0, height - 1.2 * inch, "123 Health Street, Bengaluru, India | +91 98765 43210")
+        p.drawCentredString(width / 2.0, height - 1.2 * inch, " Kolkata Medical, Kolkata, India | +91 98765 43210")
         p.line(0.8 * inch, height - 1.3 * inch, width - 0.8 * inch, height - 1.3 * inch)
 
         # Doctor Info (Now using the reliable data from the saved object)
@@ -206,10 +215,44 @@ def prescription_detail(request, prescription_id):
 def home(request): return render(request, "home.html")
 @login_required
 def history(request):
+    """
+    Handles displaying the history page with search and pagination.
+    """
+    # Get the search query and date range from the GET request
+    query = request.GET.get('q', '')
+    start_date = request.GET.get('startDate')
+    end_date = request.GET.get('endDate')
+
+    # Start with all prescriptions, ordered by the most recent
     all_prescriptions = Prescription.objects.all().order_by('-date_created')
-    return render(request, 'history.html', {'prescriptions': all_prescriptions})
-def contact(request): return render(request, 'contact.html')
-def help(request): return render(request, 'help.html')
+
+    # If a search query is provided, filter the prescriptions by patient name
+    if query:
+        all_prescriptions = all_prescriptions.filter(patient__name__icontains=query)
+    
+    # If date range is provided, filter the prescriptions
+    if start_date and end_date:
+        all_prescriptions = all_prescriptions.filter(date_created__range=[start_date, end_date])
+
+    # Set up pagination with 7 items per page
+    paginator = Paginator(all_prescriptions, 7)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Pass the paginated list, and the search/date values back to the template
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+        'start_date': start_date,
+        'end_date': end_date,
+    }
+    return render(request, 'history.html', context)
+
+def help(request):
+    """
+    Renders the help/FAQ page.
+    """
+    return render(request, 'help.html')
 
 def signup_view(request):
     if request.method == 'POST':
@@ -225,6 +268,7 @@ def signup_view(request):
     else:
         user_form, doctor_form = UserForm(), DoctorForm()
     return render(request, 'signup.html', {'user_form': user_form, 'doctor_form': doctor_form})
+
 
 def login_view(request):
     if request.method == 'POST':
@@ -357,3 +401,30 @@ def edit_profile(request):
         form = DoctorProfileUpdateForm(instance=doctor_profile)
 
     return render(request, 'edit_profile.html', {'form': form})
+
+# Replace your existing contact view with this one
+def contact(request):
+    """
+    Handles displaying and processing the contact form with server-side validation.
+    """
+    if request.method == 'POST':
+        # Create a form instance and populate it with data from the request
+        form = ContactForm(request.POST)
+        
+        # Check if the form is valid
+        if form.is_valid():
+            # Save the valid data to the database
+            form.save()
+            messages.success(request, 'Your message has been sent successfully! We will get back to you shortly.')
+            # Redirect to prevent form resubmission on page refresh
+            return redirect('contact')
+        # If the form is invalid, the view will fall through and re-render the page
+        # with the form instance containing the error messages.
+    else:
+        # If it's a GET request, create a blank form instance
+        form = ContactForm()
+
+    return render(request, 'contact.html', {'form': form})
+
+# ... (keep all your other existing views) ...
+

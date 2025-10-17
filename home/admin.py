@@ -1,7 +1,7 @@
 from .models import Patient, Prescription, Medicine, Symptom
 from django.contrib import admin
 
-from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio
+from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio , ContactSubmission
 
 
 @admin.register(Doctor)
@@ -62,21 +62,18 @@ class AudioAdmin(admin.ModelAdmin):
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
     """
-    Customizes the admin interface for the Prescription model to show related Patient data.
+    Customizes the admin interface for Prescriptions with detailed columns.
     """
 
     # --- Functions to get related Patient attributes for display ---
     def get_patient_name(self, obj):
         return obj.patient.name
     get_patient_name.short_description = 'Patient Name'
-
-    def get_patient_phone(self, obj):
-        return obj.patient.phone
-    get_patient_phone.short_description = 'Patient Phone'
+    get_patient_name.admin_order_field = 'patient__name'
 
     def get_patient_age(self, obj):
         return obj.patient.age
-    get_patient_age.short_description = 'Patient Age'
+    get_patient_age.short_description = 'Age'
 
     def get_patient_gender(self, obj):
         return obj.patient.gender
@@ -85,54 +82,48 @@ class PrescriptionAdmin(admin.ModelAdmin):
     def get_patient_weight(self, obj):
         return obj.patient.weight
     get_patient_weight.short_description = 'Weight (kg)'
-
-    def get_patient_blood_group(self, obj):
-        return obj.patient.blood_group
-    get_patient_blood_group.short_description = 'Blood Group'
-
-    def get_blood_pressure(self, obj):
-        return obj.blood_pressure
-    get_blood_pressure.short_description = 'BP'
-
-    def get_symptoms_analysed(self, obj):
-        # Joins the names of all related symptoms into a single string
+    
+    def get_symptoms(self, obj):
         return ", ".join([s.name for s in obj.symptoms.all()])
-    get_symptoms_analysed.short_description = 'Symptoms Analysed'
+    get_symptoms.short_description = 'Symptoms'
 
-    # --- UPDATED: 'list_display' now shows all the requested data ---
+    def get_medicines(self, obj):
+        return ", ".join([m.name for m in obj.medicines.all()])
+    get_medicines.short_description = 'Medicines'
+
     list_display = (
         'id',
         'get_patient_name',
+        'doctor',
         'get_patient_age',
         'get_patient_gender',
         'get_patient_weight',
-        'get_patient_blood_group',
-        'get_blood_pressure',
-        'get_symptoms_analysed',
+        'blood_pressure',
+        'get_symptoms',
+        'get_medicines',
         'date_created',
         'is_verified',
     )
 
-    # --- The rest of the configuration remains the same ---
-    list_display = ('id', 'patient', 'doctor', 'date_created', 'is_verified')
-    search_fields = ('patient__name', 'doctor__first_name')
+    search_fields = ('patient__name', 'doctor__first_name', 'symptoms__name', 'medicines__name')
     list_filter = ('date_created', 'is_verified', 'doctor')
     autocomplete_fields = ('patient', 'doctor', 'symptoms', 'medicines', 'audio')
     readonly_fields = ('date_created', 'verified_at')
-
     fieldsets = (
-        ('Primary Information', {
-            'fields': ('patient', 'doctor', 'date_created')
-        }),
-        
-        ('Verification Details', {
-            'fields': ('is_verified', 'verified_at', 'prescription_file')
-        }),
-    # --- UPDATED: Added the new audio link ---
-        ('Consultation Details', {
-            'fields': ('blood_pressure', 'symptoms', 'medicines', 'audio')
-        }),
-       
+        ('Primary Information', {'fields': ('patient', 'doctor', 'date_created')}),
+        ('Consultation Details', {'fields': ('blood_pressure', 'symptoms', 'medicines', 'audio')}),
+        ('Verification & Files', {'fields': ('is_verified', 'verified_at', 'prescription_file')}),
     )
 
 
+# --- NEW ADMIN CLASS FOR CONTACT MESSAGES ---
+@admin.register(ContactSubmission)
+class ContactSubmissionAdmin(admin.ModelAdmin):
+    """
+    Customizes the admin interface for contact form submissions.
+    """
+    list_display = ('name', 'email', 'subject', 'created_at')
+    search_fields = ('name', 'email', 'subject', 'message')
+    list_filter = ('created_at',)
+    # Make all fields read-only, as you should not edit user messages
+    readonly_fields = ('name', 'email', 'subject', 'message', 'created_at')

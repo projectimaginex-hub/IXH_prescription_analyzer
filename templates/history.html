@@ -4,55 +4,111 @@
 
 {% block content %}
 
-<header class="page-header"> 
-
-<h1>⚫ Patient Consultation History</h1> </header>
+<header class="page-header">
+  <h1>⚫ Patient Consultation History</h1>
+</header>
 
 <div class="card">
-<div class="filter-container">
-<input type="text" placeholder="Search by patient name..." class="filter-search">
-<div class="filter-dates">
-<label for="startDate">From:</label>
-<input type="date" id="startDate" name="startDate">
-<label for="endDate">To:</label>
-<input type="date" id="endDate" name="endDate">
-</div>
-<button class="btn">Search</button>
+  <!-- UPDATED: Use a form for searching and filtering -->
+  <form method="GET" action="{% url 'history' %}">
+    <div class="filter-container">
+      <input type="text" name="q" placeholder="Search by patient name..." class="filter-search" value="{{ query|default:'' }}">
+      <div class="filter-dates">
+        <label for="startDate">From:</label>
+        <input type="date" id="startDate" name="startDate" value="{{ start_date|default:'' }}">
+        <label for="endDate">To:</label>
+        <input type="date" id="endDate" name="endDate" value="{{ end_date|default:'' }}">
+      </div>
+      <button class="btn" type="submit">Search</button>
+    </div>
+  </form>
+
+  <table class="history-table">
+    <thead>
+      <tr>
+        <th>Record</th>
+        <th>Patient Name</th>
+        <th>Date</th>
+        <th>PDF</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- UPDATED: Loop through the paginated 'page_obj' -->
+      {% for item in page_obj %}
+      <tr>
+        <td style="text-align: center; font-size: 1.5em;">⚫</td>
+        <td>{{ item.patient.name }}</td>
+        <td>{{ item.date_created|date:"d M Y, P" }}</td>
+        <td>
+          {% if item.prescription_file %}
+          <a href="{{ item.prescription_file.url }}" target="_blank" class="btn btn-secondary btn-small">View PDF</a>
+          {% else %}
+          No File
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'prescription_detail' item.id %}" class="btn btn-small">View Details</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" style="text-align: center; padding: 20px;">
+          {% if query %}
+            No history found for "{{ query }}".
+          {% else %}
+            No history found. Create a new prescription to see it here.
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- NEW: Pagination Controls -->
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+      <span class="step-links">
+        {% if page_obj.has_previous %}
+          <a href="?page=1{% if query %}&q={{ query }}{% endif %}{% if start_date %}&startDate={{ start_date }}{% endif %}{% if end_date %}&endDate={{ end_date }}{% endif %}">&laquo; first</a>
+          <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if start_date %}&startDate={{ start_date }}{% endif %}{% if end_date %}&endDate={{ end_date }}{% endif %}">previous</a>
+        {% endif %}
+
+        <span class="current">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+        </span>
+
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if start_date %}&startDate={{ start_date }}{% endif %}{% if end_date %}&endDate={{ end_date }}{% endif %}">next</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if start_date %}&startDate={{ start_date }}{% endif %}{% if end_date %}&endDate={{ end_date }}{% endif %}">last &raquo;</a>
+        {% endif %}
+      </span>
+    </div>
+  {% endif %}
 </div>
 
-<table class="history-table">
-<thead>
-<tr>
-<th>Record</th>
-<th>Patient Name</th>
-<th>Date</th>
-<th>PDF</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody>
-{% for item in prescriptions %}
-<tr>
-<td style="text-align: center; font-size: 1.5em;">⚫</td>
-<td>{{ item.patient.name }}</td>
-<td>{{ item.date_created|date:"d M Y, P" }}</td>
-<td>
-{% if item.prescription_file %}
-<a href="{{ item.prescription_file.url }}" target="_blank" class="btn btn-secondary btn-small">View PDF</a>
-{% else %}
-No File
-{% endif %}
-</td>
-<td>
-<a href="{% url 'prescription_detail' item.id %}" class="btn btn-small">View Details</a>
-</td>
-</tr>
-{% empty %}
-<tr>
-<td colspan="5" style="text-align: center; padding: 20px;">No history found. Create a new prescription to see it here.</td>
-</tr>
-{% endfor %}
-</tbody>
-</table>
-</div>
+<style>
+  /* Optional: Add some styling for the pagination */
+  .pagination {
+    margin-top: 20px;
+    text-align: center;
+  }
+  .step-links a {
+    margin: 0 5px;
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #3b82f6;
+    transition: background-color 0.3s;
+  }
+  .step-links a:hover {
+    background-color: #f0f0f0;
+  }
+  .step-links .current {
+    font-weight: bold;
+    color: #111827;
+  }
+</style>
+
 {% endblock %}
