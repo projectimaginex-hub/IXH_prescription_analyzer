@@ -5,8 +5,8 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('prescription/', views.prescription, name='prescription'),
     path('history/', views.history, name='history'),
-    # New URL for the prescription detail page
-    path('history/<int:prescription_id>/', views.prescription_detail, name='prescription_detail'),
+    path('history/<int:prescription_id>/',
+         views.prescription_detail, name='prescription_detail'),
     path('profile/', views.profile, name='profile'),
     path('contact/', views.contact, name='contact'),
     path('help/', views.help, name='help'),
@@ -16,5 +16,3 @@ urlpatterns = [
     path('send-sms/<int:prescription_id>/', views.send_sms, name='send-sms'),
     path('transcribe-audio/', views.transcribe_audio, name='transcribe-audio'),
 ]
-
-
