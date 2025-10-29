@@ -20,4 +20,9 @@ urlpatterns = [
          name='get_previous_medication'),
     path('transcribe-audio/', views.transcribe_audio, name='transcribe-audio'),
     path('update_medication', views.update_medication, name='update_medication'),
+    # --- NEW AJAX ENDPOINTS FOR LLM/AUDIO ---
+    path('api/transcribe/', views.transcribe_audio_view, name='transcribe-audio'),
+    path('api/analyze/', views.analyze_prescription_view,
+         name='analyze-prescription'),
+    path('api/save-suggestion/', views.save_suggestion_view, name='save-suggestion'),
 ]

@@ -1,7 +1,7 @@
 from .models import Patient, Prescription, Medicine, Symptom
 from django.contrib import admin
 
-from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio , ContactSubmission
+from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio , ContactSubmission,LLMAudit
 
 
 @admin.register(Doctor)
@@ -127,3 +127,19 @@ class ContactSubmissionAdmin(admin.ModelAdmin):
     list_filter = ('created_at',)
     # Make all fields read-only, as you should not edit user messages
     readonly_fields = ('name', 'email', 'subject', 'message', 'created_at')
+
+# --- NEW ADMIN CLASS FOR LLM AUDITS ---
+@admin.register(LLMAudit)
+class LLMAuditAdmin(admin.ModelAdmin):
+    list_display = ('prescription', 'model_name', 'created_at')
+    search_fields = ('prescription__id', 'model_name')
+    list_filter = ('model_name', 'created_at')
+    readonly_fields = ('created_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('prescription', 'model_name', 'created_at')
+        }),
+        ('Audit Log', {
+            'fields': ('prompt', 'response')
+        }),
+    )
