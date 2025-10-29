@@ -1,13 +1,21 @@
 {% extends 'base.html' %}
+
 {% block title %}Signup - Doctor App{% endblock %}
+
 {% block content %}
-<h1>Doctor Signup</h1>
-<form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
-    <h3>Account Info</h3>
-    {{ user_form.as_p }}
-    <h3>Doctor Info</h3>
-    {{ doctor_form.as_p }}
-    <button type="submit">Signup</button>
-</form>
+<div class="auth-container">
+    <h1>Doctor Signup</h1>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <h3>Account Info</h3>
+        {{ user_form.as_p }}
+        
+        <h3>Doctor Info</h3>
+        {{ doctor_form.as_p }}
+        
+        <button type="submit" class="btn btn-primary">Signup</button>
+    </form>
+
+    <p class="auth-switch">Already have an account? <a href="{% url 'login' %}">Login here</a>.</p>
+</div>
 {% endblock %}

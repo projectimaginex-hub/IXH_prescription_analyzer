@@ -14,31 +14,104 @@
 
 <div class="content-container">
   
-  <!-- The form no longer needs an action attribute, JS will handle it -->
-  <form id="prescriptionForm" class="card form-card">
+  <form id="prescriptionForm" class="card form-card" novalidate>
     {% csrf_token %}
     <div class="form-grid">
-      <div class="form-group"><label>Patient Name:</label><input type="text" name="patientName" required></div>
-      <div class="form-group"><label>Phone:</label><input type="text" name="phone" placeholder="+91..." required></div>
-      <div class="form-group"><label>Age:</label><input type="number" name="age"></div>
-      <div class="form-group"><label>Gender:</label><select name="gender"><option>Male</option><option>Female</option><option>Other</option></select></div>
-      <div class="form-group"><label>Blood Grp:</label><input type="text" name="bloodGrp"></div>
-      <div class="form-group"><label>Weight:</label><input type="text" name="weight"></div>
-      <div class="form-group"><label>BP:</label><input type="text" name="bp"></div>
+      <div class="form-group">
+        <label>Patient Name:</label>
+        <input type="text" name="patientName" id="patientName" required>
+        <span class="error-message" id="nameError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Email:</label>
+        <input type="email" name="email" id="email" placeholder="patient@example.com">
+        <span class="error-message" id="emailError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Phone:</label>
+        <input type="text" name="phone" id="phone" placeholder="+91..." required>
+        <span class="error-message" id="phoneError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Age:</label>
+        <input type="number" name="age" id="age">
+        <span class="error-message" id="ageError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Gender:</label>
+        <select name="gender"><option>Male</option><option>Female</option><option>Other</option></select>
+      </div>
+
+      <div class="form-group">
+        <label>Blood Grp:</label>
+        <input type="text" name="bloodGrp" id="bloodGrp" placeholder="e.g., A+, O-">
+        <span class="error-message" id="bloodGrpError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Weight (kg):</label>
+        <input type="text" name="weight" id="weight">
+        <span class="error-message" id="weightError"></span>
+      </div>
+
+      <div class="form-group">
+        <label>BP (e.g. 120/80):</label>
+        <input type="text" name="bp" id="bp">
+        <span class="error-message" id="bpError"></span>
+      </div>
+      <div class="form-group">
+        <label>Allergy:</label>
+        <input type="text" name="allergy" id="allergy" placeholder="e.g., Dust, Penicillin">
+      </div>
+      
+      <div class="form-group">
+        <label>Severity:</label>
+        <select name="severity" id="severity">
+          <option value="none">None</option>
+          <option value="mild">Mild</option>
+          <option value="moderate">Moderate</option>
+          <option value="severe">Severe</option>
+        </select>
+      </div>
+      
+      <div class="form-group full-width">
+        <label>Previous Medication:</label>
+        
+      
+        <div class="history-actions">
+          <button class="btn btn-secondary" type="button" id="fetchHistoryBtn">📜 Fetch History</button>
+        </div>
+      
+        <div id="medicationHistory" class="history-box" style="display:none;">
+          <h4>Past Medication History:</h4>
+          <pre id="historyContent">No history yet.</pre>
+        </div>
+      </div>
     </div>
-    <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
+    <div style="margin-top: 15px;">
+      <textarea id="medicationBox" rows="5" cols="60" placeholder="Medication history or notes will appear here..."></textarea>
+    </div>
     
-     <h3 class="section-title">Symptoms Analysed:</h3>
+    <div style="margin-top: 10px;">
+      <button id="mlHelp">Get ML Help</button>
+      <button id="saveMed"> Save / Update Medication</button>
+
+    </div>
+    <h3 class="section-title">Symptoms Analysed:</h3>
     <div class="symptom-input-group">
-      <input type="text" id="symptomInput" placeholder="Enter symptom">
-      <button class="btn" type="button">Add Symptom</button>
+      <input type="text" id="symptomInput" placeholder="Enter symptom and click Add">
+      <button class="btn" type="button" id="addSymptomBtn">Add Symptom</button>
     </div>
     <div class="symptoms-list" id="symptomsList"></div>
-
+     
     <h3 class="section-title">Suggested Medicine:</h3>
-    <div class="medicine-list" id="medicineList"></div>
-
-    
+    <div class="medicine-list" id="medicineList">
+        <p style="color: #6b7280; text-align: center;">AI suggestions will appear here.</p>
+    </div>
 
     <div class="action-buttons">
       <button class="btn" type="submit">Verify & Save</button>
@@ -56,184 +129,330 @@
     <h4>🎙️ Record Result:</h4>
     <audio id="audioPlayback" controls style="width:100%; margin-top:10px;"></audio>
     <h4>📝 Transcribed Text:</h4>
-    <textarea id="transcriptionText" rows="4" style="width:100%;"></textarea>
+    <textarea id="transcriptionText" rows="6" style="width:100%;"></textarea>
   </div>
 </div>
 
-<!-- === FINAL JAVASCRIPT LOGIC --- ASSEMBLYAI INTEGRATION === -->
+<style>
+  .symptoms-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; min-height: 20px; }
+  .symptom-tag { background-color: #e0e7ff; color: #4338ca; padding: 5px 10px; border-radius: 12px; font-size: 0.9em; font-weight: 500; }
+  
+  /* Styling for the validation error messages */
+  .error-message {
+    color: #ef4444; /* Red */
+    font-size: 0.85em;
+    font-weight: 500;
+    display: block;
+    margin-top: 5px;
+    min-height: 1em; /* Prevents layout shifts */
+  }
+  .form-group input.invalid {
+    border-color: #ef4444;
+    background-color: #fee2e2;
+  }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // === Element References ===
+    const prescriptionForm = document.getElementById("prescriptionForm");
+    const statusMessage = document.getElementById("statusMessage");
+    const sendEmailBtn = document.getElementById("sendEmailBtn");
+    const symptomInput = document.getElementById("symptomInput");
+    const addSymptomBtn = document.getElementById("addSymptomBtn");
+    const symptomsList = document.getElementById("symptomsList");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const hiddenTranscriptionText = document.getElementById("hiddenTranscriptionText");
+    const transcriptionText = document.getElementById("transcriptionText");
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const indicator = document.getElementById("recordingIndicator");
     const audioPlayback = document.getElementById("audioPlayback");
-    const transcriptionText = document.getElementById("transcriptionText");
-    const refreshBtn = document.getElementById("refreshBtn");
-    const prescriptionForm = document.getElementById("prescriptionForm");
-    const hiddenTranscriptionText = document.getElementById("hiddenTranscriptionText");
+    let mediaRecorder, audioChunks = [], streamReference;
 
-    // --- THIS LINE IS NOW CORRECTED ---
-    // It finds the hidden CSRF token input rendered by Django and gets its value.
-    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    // --- VALIDATION FIELD REFERENCES ---
+    const patientName = document.getElementById('patientName');
+    const email = document.getElementById('email');
+    const phone = document.getElementById('phone');
+    const age = document.getElementById('age');
+    const bloodGrp = document.getElementById('bloodGrp');
+    const weight = document.getElementById('weight');
+    const bp = document.getElementById('bp');
+    const nameError = document.getElementById('nameError');
+    const emailError = document.getElementById('emailError');
+    const phoneError = document.getElementById('phoneError');
+    const ageError = document.getElementById('ageError');
+    const bloodGrpError = document.getElementById('bloodGrpError');
+    const weightError = document.getElementById('weightError');
+    const bpError = document.getElementById('bpError');
 
+    // === VALIDATION LOGIC ===
+    const validateField = (field, errorElement, validationFn) => {
+        const isValid = validationFn(field.value.trim());
+        if (!isValid) {
+            field.classList.add('invalid');
+            errorElement.textContent = field.dataset.errorMessage || 'Invalid input.';
+        } else {
+            field.classList.remove('invalid');
+            errorElement.textContent = '';
+        }
+        return isValid;
+    };
 
-    let mediaRecorder;
-    let audioChunks = [];
-    let streamReference;
+    const isName = (value) => /^[a-zA-Z\s\.']+$/.test(value);
+    const isEmail = (value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const isPhone = (value) => /^\+?[0-9\s-]{10,15}$/.test(value);
+    const isAge = (value) => value === '' || (!isNaN(value) && value > 0 && value < 120);
+    const isBloodGroup = (value) => value === '' || /^(A|B|AB|O)[\+-]$/i.test(value);
+    const isWeight = (value) => value === '' || (!isNaN(value) && value > 0 && value < 500);
+    const isBP = (value) => value === '' || /^\d{2,3}\/\d{2,3}$/.test(value);
 
-    // --- BUTTON EVENT LISTENERS ---
-    refreshBtn.addEventListener('click', () => { location.reload(); });
-    prescriptionForm.addEventListener('submit', () => {
-        hiddenTranscriptionText.value = transcriptionText.value;
+    patientName.dataset.errorMessage = 'Please enter a valid name (letters and spaces only).';
+    phone.dataset.errorMessage = 'Please enter a valid 10-digit phone number.';
+    email.dataset.errorMessage = 'Please enter a valid email address.';
+    age.dataset.errorMessage = 'Please enter a valid age.';
+    bloodGrp.dataset.errorMessage = 'Valid formats: A+, O-, AB+, etc.';
+    weight.dataset.errorMessage = 'Please enter a valid weight in kg.';
+    bp.dataset.errorMessage = 'Valid format: 120/80.';
+
+    patientName.addEventListener('input', () => validateField(patientName, nameError, isName));
+    phone.addEventListener('input', () => validateField(phone, phoneError, isPhone));
+    email.addEventListener('input', () => validateField(email, emailError, isEmail));
+    age.addEventListener('input', () => validateField(age, ageError, isAge));
+    bloodGrp.addEventListener('input', () => validateField(bloodGrp, bloodGrpError, isBloodGroup));
+    weight.addEventListener('input', () => validateField(weight, weightError, isWeight));
+    bp.addEventListener('input', () => validateField(bp, bpError, isBP));
+
+    // === Event Listeners ===
+    refreshBtn.addEventListener('click', () => location.reload());
+
+    addSymptomBtn.addEventListener('click', () => {
+        const symptomText = symptomInput.value.trim();
+        if (symptomText) {
+            const symptomTag = document.createElement('div');
+            symptomTag.className = 'symptom-tag';
+            symptomTag.textContent = symptomText;
+            symptomsList.appendChild(symptomTag);
+            symptomInput.value = '';
+        }
     });
 
-    // --- NEW TRANSCRIPTION FUNCTION ---
+    prescriptionForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const isNameValid = validateField(patientName, nameError, isName);
+        const isPhoneValid = validateField(phone, phoneError, isPhone);
+        const isEmailValid = validateField(email, emailError, isEmail);
+        const isAgeValid = validateField(age, ageError, isAge);
+        const isBloodGroupValid = validateField(bloodGrp, bloodGrpError, isBloodGroup);
+        const isWeightValid = validateField(weight, weightError, isWeight);
+        const isBPValid = validateField(bp, bpError, isBP);
+
+        if (!isNameValid || !isPhoneValid || !isEmailValid || !isAgeValid || !isBloodGroupValid || !isWeightValid || !isBPValid) {
+            statusMessage.textContent = 'Please fix the errors before saving.';
+            statusMessage.style.color = '#ef4444';
+            return;
+        }
+        
+        statusMessage.textContent = 'Verifying and generating PDF...';
+        sendEmailBtn.disabled = true;
+        hiddenTranscriptionText.value = transcriptionText.value;
+        const formData = new FormData(prescriptionForm);
+        try {
+            const response = await fetch("{% url 'prescription' %}", { method: 'POST', body: formData });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const data = await response.json();
+            if (data.status === 'success') {
+                statusMessage.textContent = data.message + " You can now send the email.";
+                statusMessage.style.color = '#10b981';
+                sendEmailBtn.dataset.prescriptionId = data.prescription_id;
+                sendEmailBtn.disabled = false;
+            } else { throw new Error(data.message || 'An unknown error occurred.'); }
+        } catch (error) {
+            statusMessage.textContent = 'Error: ' + error.message;
+            console.error('Form submission error:', error);
+        }
+    });
+
+    sendEmailBtn.addEventListener('click', async () => {
+        const prescriptionId = sendEmailBtn.dataset.prescriptionId;
+        if (!prescriptionId) return;
+        statusMessage.textContent = 'Sending Email...';
+        sendEmailBtn.disabled = true;
+        try {
+            const response = await fetch(`/send-email/${prescriptionId}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const data = await response.json();
+            if (data.status === 'success') {
+                statusMessage.textContent = data.message;
+                statusMessage.style.color = '#10b981';
+            } else { throw new Error(data.message || 'Failed to send email.'); }
+        } catch (error) {
+            statusMessage.textContent = 'Error: ' + error.message;
+            sendEmailBtn.disabled = false;
+        }
+    });
+    
+    // --- FULL RECORDING & TRANSCRIPTION LOGIC ---
     const getTranscription = async (audioBlob) => {
         transcriptionText.value = "Transcribing, please wait...";
         const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', csrfToken);
         formData.append('audio', audioBlob, 'recording.webm');
-
         try {
-            const response = await fetch("{% url 'transcribe-audio' %}", {
-                method: 'POST',
-                body: formData
-            });
+            const response = await fetch("{% url 'transcribe-audio' %}", { method: 'POST', body: formData });
             const data = await response.json();
             if (data.status === 'success') {
                 transcriptionText.value = data.text;
-            } else {
-                throw new Error(data.message || 'Transcription failed.');
-            }
+            } else { throw new Error(data.message || 'Transcription failed.'); }
         } catch (error) {
-            console.error('Transcription error:', error);
             transcriptionText.value = "Error: " + error.message;
-            alert("Error during transcription: " + error.message);
         }
     };
 
-    // --- RECORDING LOGIC ---
     startBtn.addEventListener("click", async () => {
-      audioPlayback.src = "";
-      transcriptionText.value = "";
       audioChunks = [];
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamReference = stream;
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-
-        mediaRecorder.addEventListener("dataavailable", event => {
-            audioChunks.push(event.data);
-        });
-
+        mediaRecorder.addEventListener("dataavailable", e => audioChunks.push(e.data));
         mediaRecorder.addEventListener("stop", () => {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          const audioUrl = URL.createObjectURL(audioBlob);
-          audioPlayback.src = audioUrl;
-          
-          // Send the audio blob for transcription
+          audioPlayback.src = URL.createObjectURL(audioBlob);
           getTranscription(audioBlob);
         });
-
         mediaRecorder.start();
         startBtn.style.display = "none";
         stopBtn.style.display = "inline-block";
         indicator.style.display = "inline-block";
       } catch (err) {
-        alert("Microphone access was denied or is unavailable.");
-        console.error("Error accessing microphone:", err);
+        alert("Microphone access was denied.");
       }
     });
 
     stopBtn.addEventListener("click", () => {
-      if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-      }
-      if (streamReference) {
-        streamReference.getTracks().forEach(track => track.stop());
-      }
+      if (mediaRecorder) mediaRecorder.stop();
+      if (streamReference) streamReference.getTracks().forEach(track => track.stop());
       startBtn.style.display = "inline-block";
       stopBtn.style.display = "none";
       indicator.style.display = "none";
     });
-
-    
-    // --- NEW SESSION BUTTON ---
-    refreshBtn.addEventListener('click', () => {
-        location.reload();
-    });
-    
-    // --- 1. HANDLE "VERIFY & SAVE" ---
-    prescriptionForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Stop the page from reloading
-        statusMessage.textContent = 'Verifying and generating PDF...';
-        statusMessage.style.color = '#6b7280';
-        sendBtn.disabled = true;
-
-        hiddenTranscriptionText.value = transcriptionText.value;
-        const formData = new FormData(prescriptionForm);
-
-        try {
-            const response = await fetch("{% url 'prescription' %}", {
-                method: 'POST',
-                body: formData,
-                // No 'Content-Type' header needed for FormData; browser sets it
-            });
-
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                statusMessage.textContent = data.message + " You can now send the SMS.";
-                statusMessage.style.color = '#10b981';
-                // Store the new prescription ID on the send button for later use
-                sendBtn.dataset.prescriptionId = data.prescription_id;
-                sendBtn.disabled = false; // Enable the send button
-            } else {
-                throw new Error(data.message || 'An unknown error occurred.');
-            }
-        } catch (error) {
-            statusMessage.textContent = 'Error: ' + error.message;
-            statusMessage.style.color = '#ef4444';
-            console.error('Form submission error:', error);
-        }
-    });
-
-    // --- 2. HANDLE "SEND TO PATIENT" ---
-    sendBtn.addEventListener('click', async () => {
-        const prescriptionId = sendBtn.dataset.prescriptionId;
-        if (!prescriptionId) {
-            alert('Please verify and save a prescription first.');
-            return;
-        }
-
-        statusMessage.textContent = 'Sending SMS...';
-        sendBtn.disabled = true;
-
-        const url = `/send-sms/${prescriptionId}/`;
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                statusMessage.textContent = data.message;
-                statusMessage.style.color = '#10b981';
-            } else {
-                throw new Error(data.message || 'Failed to send SMS.');
-            }
-        } catch (error) {
-            statusMessage.textContent = 'Error: ' + error.message;
-            statusMessage.style.color = '#ef4444';
-            sendBtn.disabled = false; // Re-enable button on failure
-            console.error('Send SMS error:', error);
-        }
-    });
 });
+
+
+
+
+
+
+
+
+// ---------------Fetch Medication History------------------
+
+
+const fetchBtn = document.getElementById('fetchHistoryBtn');
+const saveBtn = document.getElementById('saveMed');
+const mlBtn = document.getElementById('mlHelp');
+const medBox = document.getElementById('medicationBox');
+const phoneInput = document.getElementById('phone');
+const patientNameInput = document.getElementById('patientName');
+
+// 🔹 Auto-expand textarea height dynamically
+medBox.addEventListener("input", () => {
+  medBox.style.height = "auto";
+  medBox.style.height = medBox.scrollHeight + "px";
+});
+
+
+// 🔹 Fetch medication history
+fetchBtn.addEventListener("click", async () => {
+  const phone = phoneInput.value.trim();
+  const patientName = patientNameInput.value.trim();
+
+  if (!phone || !patientName) {
+    alert("⚠️ Please enter both patient name and phone number.");
+    return;
+  }
+
+  fetchBtn.disabled = true;
+  fetchBtn.textContent = "Fetching...";
+
+  try {
+    const res = await fetch(`/get_previous_medication?phone=${encodeURIComponent(phone)}&patientName=${encodeURIComponent(patientName)}`);
+    const data = await res.json();
+
+    if (data.status === "success") {
+      medBox.value = data.previous_medication?.trim() || "";
+      adjustTextarea();
+      alert("✅ Medication record loaded successfully.");
+    } else if (data.status === "not_found") {
+      medBox.value = "";
+      alert("❌ No record found for this patient. You can add a new one below.");
+    } else {
+      alert(`⚠️ Error: ${data.message || "Something went wrong"}`);
+    }
+  } catch (err) {
+    console.error("Fetch error:", err);
+    alert("🚫 Error fetching data. Check network or server.");
+  } finally {
+    fetchBtn.textContent = "Fetch Medication";
+    fetchBtn.disabled = false;
+  }
+});
+
+
+// 🔹 Add ML suggestion into the same box
+mlBtn.addEventListener("click", async () => {
+  medBox.value += `\n\n💡 Suggested by ML: Continue dosage for 5 days.`;
+  adjustTextarea();
+});
+
+
+// 🔹 Save / Update medication info
+saveBtn.addEventListener("click", async () => {
+  const phone = phoneInput.value.trim();
+  const patientName = patientNameInput.value.trim();
+  const medicationText = medBox.value.trim();
+
+  if (!phone || !patientName) {
+    alert("⚠️ Please enter patient name and phone number.");
+    return;
+  }
+  if (!medicationText) {
+    alert("⚠️ Medication field is empty.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("phone", phone);
+  formData.append("patientName", patientName);
+  formData.append("currentMedication", medicationText);
+
+  try {
+    const res = await fetch("/update_medication", { method: "POST", body: formData });
+    const data = await res.json();
+
+    if (data.status === "success") {
+      alert("✅ Medication updated successfully.");
+    } else {
+      alert(`❌ Failed: ${data.message}`);
+    }
+  } catch (err) {
+    console.error("Save error:", err);
+    alert("🚫 Error saving medication record.");
+  }
+});
+
+
+// Helper to auto-resize textarea
+function adjustTextarea() {
+  medBox.style.height = "auto";
+  medBox.style.height = medBox.scrollHeight + "px";
+}
+
+
+// -----------------------------------------
 </script>
 {% endblock %}
 

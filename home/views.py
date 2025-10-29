@@ -1,7 +1,12 @@
+import re
+from .forms import UserForm, DoctorForm, DoctorProfileUpdateForm
+from django.shortcuts import render, redirect, get_object_or_404
 import io
 import time
 import requests
 from django.utils import timezone
+from django.core.mail import EmailMessage
+from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
@@ -9,12 +14,17 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from .forms import ContactForm
 from reportlab.lib.units import inch
 from .models import Patient, Prescription, Doctor
 from .forms import UserForm, DoctorForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
+
+from django.core.paginator import Paginator
+from django.db.models import Q
+from .models import Patient, Prescription, Doctor, Symptom, Medicine, Audio, ContactSubmission
 
 
 # --- ASSEMBLYAI API CONFIG ---
@@ -77,6 +87,11 @@ def prescription(request):
     """
     if request.method == 'POST':
         # --- 1. GATHER AND VALIDATE DATA ---
+       # 1. Gather data from the incoming POST request
+        # --- FIXED: Get the audio file from the request ---
+        audio_file = request.FILES.get('audio')
+        transcribed_text = request.POST.get('transcriptionText')
+        email = request.POST.get('email')  # <-- GET THE EMAIL
         patient_name = request.POST.get('patientName')
         phone = request.POST.get('phone')
         age = request.POST.get('age')
@@ -92,7 +107,7 @@ def prescription(request):
 
         # --- 2. CREATE DATABASE OBJECTS ---
         patient = Patient.objects.create(
-            name=patient_name, phone=phone, age=age_val,
+            name=patient_name, phone=phone, age=age_val, email=email,  # <-- SAVE THE EMAIL
             gender=gender, blood_group=blood_group, weight=weight_val
         )
 
@@ -104,7 +119,18 @@ def prescription(request):
         new_prescription = Prescription.objects.create(
             patient=patient, doctor=doctor, blood_pressure=blood_pressure,
             transcribed_text=transcribed_text, is_verified=True, verified_at=timezone.now()
+
         )
+
+        # --- 3. SAVE THE FILES ---
+        if audio_file:
+            new_prescription.audio_recording.save(
+                f'rec_{patient.id}_{new_prescription.id}.webm', audio_file, save=True)
+
+        if transcribed_text:
+            transcript_content = ContentFile(transcribed_text.encode('utf-8'))
+            new_prescription.transcript_file.save(
+                f'transcript_{patient.id}_{new_prescription.id}.txt', transcript_content, save=True)
 
         # --- 3. GENERATE THE PDF (NOW THAT DATA IS SAVED) ---
         buffer = io.BytesIO()
@@ -117,7 +143,7 @@ def prescription(request):
                             "🏥 IMAGINEX HEALTH CLINIC")
         p.setFont("Helvetica", 11)
         p.drawCentredString(width / 2.0, height - 1.2 * inch,
-                            "123 Health Street, Bengaluru, India | +91 98765 43210")
+                            " Kolkata Medical, Kolkata, India | +91 98765 43210")
         p.line(0.8 * inch, height - 1.3 * inch,
                width - 0.8 * inch, height - 1.3 * inch)
 
@@ -209,12 +235,47 @@ def home(request): return render(request, "home.html")
 
 @login_required
 def history(request):
+    """
+    Handles displaying the history page with search and pagination.
+    """
+    # Get the search query and date range from the GET request
+    query = request.GET.get('q', '')
+    start_date = request.GET.get('startDate')
+    end_date = request.GET.get('endDate')
+
+    # Start with all prescriptions, ordered by the most recent
     all_prescriptions = Prescription.objects.all().order_by('-date_created')
-    return render(request, 'history.html', {'prescriptions': all_prescriptions})
+
+    # If a search query is provided, filter the prescriptions by patient name
+    if query:
+        all_prescriptions = all_prescriptions.filter(
+            patient__name__icontains=query)
+
+    # If date range is provided, filter the prescriptions
+    if start_date and end_date:
+        all_prescriptions = all_prescriptions.filter(
+            date_created__range=[start_date, end_date])
+
+    # Set up pagination with 7 items per page
+    paginator = Paginator(all_prescriptions, 7)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Pass the paginated list, and the search/date values back to the template
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+        'start_date': start_date,
+        'end_date': end_date,
+    }
+    return render(request, 'history.html', context)
 
 
-def contact(request): return render(request, 'contact.html')
-def help(request): return render(request, 'help.html')
+def help(request):
+    """
+    Renders the help/FAQ page.
+    """
+    return render(request, 'help.html')
 
 
 def signup_view(request):
@@ -274,37 +335,178 @@ def send_sms(request, prescription_id):
     if not patient_phone:
         return JsonResponse({'status': 'error', 'message': 'Patient phone number is not available.'}, status=400)
 
-    # Ensure patient_phone is E.164 like "9198xxxx..."
-    # pdf_url = request.build_absolute_uri(prescription.prescription_file.url)
-    # doctor_name = f"Dr. {
-    #     prescription.doctor.first_name}" if prescription.doctor else "the clinic"
+# --- ADD THIS NEW VIEW AT THE END OF THE FILE ---
+# home/views.py
 
-    # url = f"https://graph.facebook.com/v17.0/{
-    #     settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
-    # headers = {
-    #     "Authorization": f"Bearer {settings.WHATSAPP_ACCESS_TOKEN}",
-    #     "Content-Type": "application/json"
-    # }
+# home/views.py
 
-    # data = {
-    #     "messaging_product": "whatsapp",
-    #     "to": patient_phone,
-    #     "type": "document",
-    #     "document": {
-    #         "link": pdf_url,
-    #         "filename": "prescription.pdf"
-    #     },
-    #     "context": {
-    #         # optional: references an earlier message id to stay in session
-    #     }
-    # }
 
-    # resp = requests.post(url, headers=headers, json=data)
-    # if resp.status_code in (200, 201):
-    #     return JsonResponse({'status': 'success', 'message': f'WhatsApp document sent to {patient_phone}.'})
-    # else:
-    #     return JsonResponse({
-    #         'status': 'error',
-    #         'message': 'Failed to send WhatsApp message.',
-    #         'detail': resp.text
-    #     }, status=500)
+@login_required
+def send_email(request, prescription_id):
+    print("\n--- [DEBUG] SEND EMAIL VIEW TRIGGERED ---")
+    if request.method == 'POST':
+        try:
+            print(f"[DEBUG] Finding prescription with ID: {prescription_id}")
+            prescription = Prescription.objects.get(id=prescription_id)
+            patient_email = prescription.patient.email
+            print(f"[DEBUG] Found patient email: '{patient_email}'")
+
+            if not patient_email:
+                print("[DEBUG] ERROR: Patient email is blank.")
+                return JsonResponse({'status': 'error', 'message': 'Patient email address is not available.'}, status=400)
+
+            if not prescription.prescription_file or not prescription.prescription_file.path:
+                print(
+                    "[DEBUG] ERROR: Prescription PDF file not found or not saved to disk.")
+                return JsonResponse({'status': 'error', 'message': 'No prescription PDF found to send.'}, status=400)
+
+            print(f"[DEBUG] PDF file path found: {
+                  prescription.prescription_file.path}")
+
+            try:
+                print("[DEBUG] Preparing to send email...")
+                doctor_name = f"Dr. {
+                    prescription.doctor.first_name}" if prescription.doctor else "the clinic"
+                subject = f"Your Prescription from {doctor_name}"
+                body = f"Hello {
+                    prescription.patient.name},\n\nPlease find your prescription attached.\n\nThank you,\n{doctor_name}"
+
+                email = EmailMessage(
+                    subject, body, settings.EMAIL_HOST_USER, [patient_email])
+
+                print("[DEBUG] Attaching PDF file to email...")
+                email.attach_file(prescription.prescription_file.path)
+
+                print("[DEBUG] Executing email.send()...")
+                email.send()
+
+                print("[DEBUG] SUCCESS: email.send() command finished.")
+                return JsonResponse({'status': 'success', 'message': f'Email sent successfully to {patient_email}.'})
+            except Exception as e:
+                print(
+                    f"\n !!! [DEBUG] CRITICAL ERROR during email sending: {e}\n")
+                return JsonResponse({'status': 'error', 'message': 'Failed to send email. Check server log for details.'}, status=500)
+
+        except Prescription.DoesNotExist:
+            print(f"[DEBUG] ERROR: Prescription with ID {
+                  prescription_id} not found.")
+            return JsonResponse({'status': 'error', 'message': 'Prescription not found.'}, status=404)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+
+# home/views.py
+# Add the new form to your imports
+# ... (other imports and views) ...
+
+
+@login_required
+def edit_profile(request):
+    # Ensure the user has a doctor profile, redirecting if not
+    doctor_profile = get_object_or_404(Doctor, user=request.user)
+
+    if request.method == 'POST':
+        # Pass 'instance=doctor_profile' to update the existing record
+        form = DoctorProfileUpdateForm(
+            request.POST, request.FILES, instance=doctor_profile)
+        if form.is_valid():
+            form.save()
+            # Redirect back to the profile page on success
+            return redirect('profile')
+    else:
+        # Pre-populate the form with the doctor's current data
+        form = DoctorProfileUpdateForm(instance=doctor_profile)
+
+    return render(request, 'edit_profile.html', {'form': form})
+
+# Replace your existing contact view with this one
+
+
+def contact(request):
+    """
+    Handles displaying and processing the contact form with server-side validation.
+    """
+    if request.method == 'POST':
+        # Create a form instance and populate it with data from the request
+        form = ContactForm(request.POST)
+
+        # Check if the form is valid
+        if form.is_valid():
+            # Save the valid data to the database
+            form.save()
+            messages.success(
+                request, 'Your message has been sent successfully! We will get back to you shortly.')
+            # Redirect to prevent form resubmission on page refresh
+            return redirect('contact')
+        # If the form is invalid, the view will fall through and re-render the page
+        # with the form instance containing the error messages.
+    else:
+        # If it's a GET request, create a blank form instance
+        form = ContactForm()
+
+    return render(request, 'contact.html', {'form': form})
+
+
+def get_previous_medication(request):
+    phone = request.GET.get("phone")
+    patientName = request.GET.get("patientName")
+    if not phone or not patientName:
+        return JsonResponse({"status": "error", "message": "Phone number required."})
+
+    try:
+        patient = Patient.objects.get(phone=phone)
+        patient = Patient.objects.get(patientName=patientName)
+        previous_med = patient.previous_medication or ""
+        return JsonResponse({
+            "status": "success",
+            "previous_medication": previous_med
+        })
+    except Patient.DoesNotExist:
+        return JsonResponse({
+            "status": "not_found",
+            "message": "No record found for this patient."
+        })
+
+
+@csrf_exempt
+def update_medication(request):
+    """API to append or update the patient's medication record."""
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Invalid request method."})
+
+    phone = request.POST.get("phone", "").strip()
+    patient_name = request.POST.get("patientName", "").strip()
+    current_med = request.POST.get("currentMedication", "").strip()
+
+    # ✅ Validate required fields
+    if not phone or not patient_name:
+        return JsonResponse({"status": "error", "message": "Phone number and patient name are required."})
+
+    if not current_med:
+        return JsonResponse({"status": "error", "message": "Please enter current medication before saving."})
+
+    try:
+        # ✅ Get patient record with both phone and name match
+        patient = Patient.objects.get(
+            phone=phone, name__iexact=patient_name)  # case-insensitive match
+
+        # ✅ Clean and append current medication safely
+        previous = patient.previous_medication or ""
+        clean_current = re.sub(
+            r'<[^>]*>', '', current_med).strip()  # remove HTML tags
+        separator = "\n\n--- Updated on Record ---\n" if previous else ""
+        patient.previous_medication = f"{previous}{separator}{clean_current}"
+
+        # ✅ Save updated record
+        patient.save()
+
+        return JsonResponse({
+            "status": "success",
+            "message": f"Medication updated successfully for {patient.name}."
+        })
+
+    except Patient.DoesNotExist:
+        return JsonResponse({
+            "status": "error",
+            "message": "❌ Patient not found. Please check name and phone number."
+        })

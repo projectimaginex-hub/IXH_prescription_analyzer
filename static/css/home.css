@@ -12,7 +12,7 @@ body {
   .home-header h1 {
     font-size: 3rem;
     background: linear-gradient(90deg, #4caf50, #2196f3);
-    -webkit-background-clip: text;
+    
     -webkit-text-fill-color: transparent;
   }
   

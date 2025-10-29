@@ -13,6 +13,11 @@ urlpatterns = [
     path('signup/', views.signup_view, name='signup'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
-    path('send-sms/<int:prescription_id>/', views.send_sms, name='send-sms'),
+    path('send-email/<int:prescription_id>/',
+         views.send_email, name='send-email'),  # <-- ADD THIS
+    path('profile/edit/', views.edit_profile, name='edit-profile'),
+    path('get_previous_medication/', views.get_previous_medication,
+         name='get_previous_medication'),
     path('transcribe-audio/', views.transcribe_audio, name='transcribe-audio'),
+    path('update_medication', views.update_medication, name='update_medication'),
 ]
