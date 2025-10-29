@@ -2,13 +2,13 @@ import os
 import json
 import difflib
 import logging
-
+import openai
 logger = logging.getLogger(__name__)
 
 # --- LLM Connection (OpenAI Example) ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if OPENAI_API_KEY:
-    import openai
+
     openai.api_key = OPENAI_API_KEY
 else:
     openai = None
