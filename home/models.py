@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+
+
 class Patient(models.Model):
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=15, blank=True)
@@ -110,3 +112,23 @@ class ContactSubmission(models.Model):
 
     def __str__(self):
         return f"Message from {self.name} - {self.subject}"
+    
+    # home/models.py
+
+# ... (rest of your models: Patient, Medicine, Symptom, etc.) ...
+
+class LLMAudit(models.Model):
+    """
+    Tracks the input (prompt) and output (response) for each LLM call 
+    made during the prescription analysis process.
+    """
+    prescription = models.ForeignKey(
+        Prescription, on_delete=models.CASCADE, related_name='llm_audits'
+    )
+    model_name = models.CharField(max_length=100) # e.g., 'symptom_extraction', 'medicine_prediction'
+    prompt = models.TextField()
+    response = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Audit for {self.model_name} on Prescription {self.prescription.id}"
