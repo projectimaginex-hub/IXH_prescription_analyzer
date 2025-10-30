@@ -1,4 +1,6 @@
+from openai import OpenAI
 import os
+from dotenv import load_dotenv
 import json
 import difflib
 import logging
@@ -6,23 +8,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 # --- LLM Connection (OpenAI Example) ---
+load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if OPENAI_API_KEY:
-    import openai
-    openai.api_key = OPENAI_API_KEY
-else:
-    openai = None
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 SYMPTOM_PROMPT = """
 You are a medical note analyzer. 
 Input: a transcribed text generated from a patient's and doctor's audio note.
 Return structured JSON:
-{
-  "symptoms": [{"name": "<symptom>", "confidence": 0.0-1.0}],
+{{
+  "symptoms": [{{"name": "<symptom>", "confidence": 0.0-1.0}}],
   "summary": "<1-line summary>"
-}
+}}
+Text: {transcribed_text}
 """
+
 
 MEDICINE_PROMPT = """
 You are a clinical assistant suggesting potential medicines based on symptoms.
@@ -52,31 +54,35 @@ def _extract_json(text: str):
 
 
 def call_openai(messages, model="gpt-4o-mini", max_tokens=600):
-    if not openai:
+    if not client:
         logger.warning("No OpenAI key found. Returning dummy response.")
         return '{"symptoms": [], "summary": ""}'
-    response = openai.ChatCompletion.create(
+
+    response = client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=0.0,
         max_tokens=max_tokens,
     )
-    return response["choices"][0]["message"]["content"]
+    return response.choices[0].message.content
 
 
 def extract_symptoms_from_text(transcribed_text: str):
     messages = [
         {"role": "system", "content": "You extract symptoms as JSON only."},
-        {"role": "user", "content": SYMPTOM_PROMPT.format(transcribed_text=transcribed_text)},
+        {"role": "user", "content": SYMPTOM_PROMPT.format(
+            transcribed_text=transcribed_text)},
     ]
     raw = call_openai(messages)
+
     return _extract_json(raw)
 
 
 def predict_medicines_from_symptoms(symptoms_json, patient_info):
     messages = [
         {"role": "system", "content": "You suggest possible medicines as JSON only."},
-        {"role": "user", "content": MEDICINE_PROMPT.format(symptoms_json=json.dumps(symptoms_json), patient_info=json.dumps(patient_info))},
+        {"role": "user", "content": MEDICINE_PROMPT.format(symptoms_json=json.dumps(
+            symptoms_json), patient_info=json.dumps(patient_info))},
     ]
     raw = call_openai(messages)
     result = _extract_json(raw)
