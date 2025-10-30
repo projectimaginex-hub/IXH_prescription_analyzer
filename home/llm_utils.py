@@ -36,51 +36,6 @@ Output only JSON array:
 ]
 """
 
-# home/llm_utils.py
-
-# ... (Keep all existing code, including imports and existing functions) ...
-
-# -------------------------------------------------------------------------
-# --- MAIN ORCHESTRATION FUNCTION FOR AJAX VIEW ---
-# -------------------------------------------------------------------------
-def analyze_transcription_text(transcribed_text: str, patient_info: dict = None):
-    """
-    Orchestrates the two-step LLM analysis pipeline with robust error handling.
-    """
-    if not patient_info:
-        patient_info = {"age": "N/A", "gender": "N/A", "weight": "N/A"}
-    
-    symptom_data = {"symptoms": []}
-    symptoms_list = []
-    med_suggestions = []
-
-    # --- Step 1: Extract Symptoms (Symptom Prompt / ChatGPT/OpenAI) ---
-    try:
-        # Calls the function that connects to the Symptom LLM
-        symptom_data = extract_symptoms_from_text(transcribed_text) 
-    except Exception as e:
-        # If the call fails, log the error and use empty data
-        logging.error(f"Symptom Extraction Failed: {e}")
-        symptom_data = {"symptoms": []}
-
-    symptoms_list = symptom_data.get("symptoms", [])
-
-    # --- Step 2: Predict Medicines (Medicine Prompt / Gemini/Google) ---
-    # Only run prediction if we have symptoms (or if the symptom LLM returned structured empty data)
-    if symptoms_list:
-        try:
-            # Calls the function that connects to the Medicine LLM
-            med_suggestions = predict_medicines_from_symptoms(symptom_data, patient_info) 
-        except Exception as e:
-            # If the call fails, log the error and use empty data
-            logging.error(f"Medicine Prediction Failed: {e}")
-            med_suggestions = []
-    
-    # Return the structured data required by the AJAX view
-    return {
-        'suggested_symptoms': symptoms_list,
-        'suggested_medicines': med_suggestions
-    }
 
 def _extract_json(text: str):
     try:
