@@ -41,6 +41,21 @@ font-family: monospace;
 max-height: 300px;
 overflow-y: auto;
 }
+/* New style for symptom tags */
+.symptom-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.symptom-tag-detail {
+  background-color: #e0e7ff;
+  color: #4338ca;
+  padding: 5px 10px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 500;
+}
 </style>
 
 <header class="page-header">
@@ -63,6 +78,16 @@ overflow-y: auto;
     <p><strong>Blood Pressure:</strong> {{ prescription.blood_pressure|default:"N/A" }}</p>
 </div>
 
+<div class="detail-card">
+    <h3>Confirmed Symptoms</h3>
+    <div class="symptom-tags-list">
+        {% for symptom in prescription.symptoms.all %}
+            <div class="symptom-tag-detail">{{ symptom.name }}</div>
+        {% empty %}
+            <p style="color: #6b7280;">No symptoms recorded.</p>
+        {% endfor %}
+    </div>
+</div>
 </div>
 
 <div class="card" style="margin-top: 2rem;">

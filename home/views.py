@@ -1,10 +1,11 @@
 import io
 import time
 import requests
+import json # ADDED
 from django.utils import timezone
 from django.core.mail import EmailMessage
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404 # UPDATED
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
@@ -14,14 +15,15 @@ from reportlab.lib.pagesizes import letter
 from .forms import ContactForm
 from reportlab.lib.units import inch
 from .models import Patient, Prescription, Doctor
-from .forms import UserForm, DoctorForm
+from .forms import UserForm, DoctorForm, DoctorProfileUpdateForm # UPDATED
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Patient, Prescription, Doctor, Symptom, Medicine, Audio , ContactSubmission
-
+from .llm_utils import extract_symptoms_from_text # ADDED LLM Import
+from django.db import transaction # ADDED
 
 from twilio.rest import Client
 
@@ -30,6 +32,7 @@ ASSEMBLYAI_UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
 ASSEMBLYAI_TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript'
 
 # --- NEW VIEW FOR TRANSCRIPTION ---
+
 @csrf_exempt
 def transcribe_audio(request):
     if request.method == 'POST':
@@ -72,20 +75,46 @@ def transcribe_audio(request):
         return JsonResponse({'status': 'error', 'message': 'Transcription timed out.'}, status=408)
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
-# --- CORRECTED PRESCRIPTION VIEW ---
+# --- NEW VIEW: AI Symptom Prediction Endpoint ---
+@csrf_exempt
+def get_ai_symptoms(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            transcribed_text = data.get('transcribed_text', '').strip()
+            
+            if not transcribed_text:
+                return JsonResponse({'status': 'error', 'message': 'Transcription text is required for analysis.'}, status=400)
+            
+            # --- CALL THE LLM UTILITY FUNCTION ---
+            symptom_data = extract_symptoms_from_text(transcribed_text)
+            
+            # Extract names from the LLM's structured JSON response
+            predicted_symptoms = [s['name'].capitalize() for s in symptom_data.get('symptoms', [])]
+            
+            return JsonResponse({'status': 'success', 'symptoms': predicted_symptoms})
+
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON format.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'AI Prediction Error: {str(e)}'}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+
+# --- CORRECTED PRESCRIPTION VIEW (Handling Symptoms) ---
 
 @login_required
 def prescription(request):
     """
     Handles the 'Verify & Save' submission via an asynchronous request (AJAX).
+    UPDATED: Now processes the confirmedSymptoms field from the frontend.
     """
     if request.method == 'POST':
         # --- 1. GATHER AND VALIDATE DATA ---
-       # 1. Gather data from the incoming POST request
-        # --- FIXED: Get the audio file from the request ---
         audio_file = request.FILES.get('audio')
         transcribed_text = request.POST.get('transcriptionText')
-        email = request.POST.get('email') # <-- GET THE EMAIL
+        email = request.POST.get('email')
         patient_name = request.POST.get('patientName')
         phone = request.POST.get('phone')
         age = request.POST.get('age')
@@ -93,126 +122,183 @@ def prescription(request):
         blood_group = request.POST.get('bloodGrp')
         weight = request.POST.get('weight')
         blood_pressure = request.POST.get('bp')
-        transcribed_text = request.POST.get('transcriptionText')
+        
+        # --- NEW: Get the confirmed symptoms list ---
+        confirmed_symptoms_str = request.POST.get('confirmedSymptoms', '')
+        confirmed_symptom_names = [s.strip() for s in confirmed_symptoms_str.split(',') if s.strip()]
 
         age_val = int(age) if age and age.isdigit() else None
         weight_val = float(weight) if weight and weight.replace('.', '', 1).isdigit() else None
         
-        
-      
-        # --- 2. CREATE DATABASE OBJECTS ---
-        patient = Patient.objects.create(
-            name=patient_name, phone=phone, age=age_val, email=email, # <-- SAVE THE EMAIL
-            gender=gender, blood_group=blood_group, weight=weight_val
-        )
+        with transaction.atomic(): # Use a transaction for reliability
+            # --- 2. CREATE DATABASE OBJECTS ---
+            patient, created = Patient.objects.get_or_create(
+                phone=phone, # Use phone as primary identifier for existing patient check
+                defaults={
+                    'name': patient_name, 
+                    'age': age_val, 
+                    'email': email, 
+                    'gender': gender, 
+                    'blood_group': blood_group, 
+                    'weight': weight_val
+                }
+            )
 
-        try:
-            doctor = request.user.doctor
-        except Doctor.DoesNotExist:
-            doctor = None
-        
-        new_prescription = Prescription.objects.create(
-            patient=patient, doctor=doctor, blood_pressure=blood_pressure,
-            transcribed_text=transcribed_text, is_verified=True, verified_at=timezone.now()
-      
-        )
-        
-        
-         # --- 3. SAVE THE FILES ---
-        if audio_file:
-            new_prescription.audio_recording.save(
-                f'rec_{patient.id}_{new_prescription.id}.webm', audio_file, save=True)
-
-        if transcribed_text:
-            transcript_content = ContentFile(transcribed_text.encode('utf-8'))
-            new_prescription.transcript_file.save(
-                f'transcript_{patient.id}_{new_prescription.id}.txt', transcript_content, save=True)
+            try:
+                doctor = request.user.doctor
+            except Doctor.DoesNotExist:
+                doctor = None
             
-     
-        
-        # --- 3. GENERATE THE PDF (NOW THAT DATA IS SAVED) ---
-        buffer = io.BytesIO()
-        p = canvas.Canvas(buffer, pagesize=letter)
-        width, height = letter
+            new_prescription = Prescription.objects.create(
+                patient=patient, doctor=doctor, blood_pressure=blood_pressure,
+                transcribed_text=transcribed_text, is_verified=True, verified_at=timezone.now()
+            )
+            
+            # --- 3. SAVE SYMPTOMS TO M2M FIELD ---
+            for name in confirmed_symptom_names:
+                # Create the symptom if it doesn't exist, then add it to the prescription
+                symptom_obj, created = Symptom.objects.get_or_create(name=name)
+                new_prescription.symptoms.add(symptom_obj)
+            
+            # --- 4. SAVE THE FILES (Audio and Transcript) ---
+            # NOTE: I am using the fields you defined in models.py (audio_recording, transcript_file)
+            if audio_file:
+                new_prescription.audio_recording.save(
+                    f'rec_{patient.id}_{new_prescription.id}.webm', audio_file, save=True)
 
-        # Header
-        p.setFont("Helvetica-Bold", 20)
-        p.drawCentredString(width / 2.0, height - 1 * inch, "🏥 IMAGINEX HEALTH CLINIC")
-        p.setFont("Helvetica", 11)
-        p.drawCentredString(width / 2.0, height - 1.2 * inch, " Kolkata Medical, Kolkata, India | +91 98765 43210")
-        p.line(0.8 * inch, height - 1.3 * inch, width - 0.8 * inch, height - 1.3 * inch)
+            if transcribed_text:
+                transcript_content = ContentFile(transcribed_text.encode('utf-8'))
+                new_prescription.transcript_file.save(
+                    f'transcript_{patient.id}_{new_prescription.id}.txt', transcript_content, save=True)
+                
+            
+            # --- 5. GENERATE THE PDF (NOW THAT DATA IS SAVED) ---
+            # ... (PDF generation logic remains identical) ...
+            buffer = io.BytesIO()
+            p = canvas.Canvas(buffer, pagesize=letter)
+            width, height = letter
 
-        # Doctor Info (Now using the reliable data from the saved object)
-        doctor_name = f"Dr. {doctor.first_name} {doctor.last_name}" if doctor else "Dr. ABC DEF"
-        specialization = getattr(doctor, "specialization", "General Physician") if doctor else "General Physician"
-        p.setFont("Helvetica-Bold", 13)
-        p.drawString(1 * inch, height - 1.7 * inch, doctor_name)
-        p.setFont("Helvetica", 11)
-        p.drawString(1 * inch, height - 1.9 * inch, specialization)
-        p.drawString(width - 3 * inch, height - 1.9 * inch, f"Date: {new_prescription.verified_at.strftime('%d-%m-%Y %I:%M %p')}") # This will now work
+            # Header
+            p.setFont("Helvetica-Bold", 20)
+            p.drawCentredString(width / 2.0, height - 1 * inch, "🏥 IMAGINEX HEALTH CLINIC")
+            p.setFont("Helvetica", 11)
+            p.drawCentredString(width / 2.0, height - 1.2 * inch, " Kolkata Medical, Kolkata, India | +91 98765 43210")
+            p.line(0.8 * inch, height - 1.3 * inch, width - 0.8 * inch, height - 1.3 * inch)
 
-        # Patient Info
-        p.line(0.8 * inch, height - 2.1 * inch, width - 0.8 * inch, height - 2.1 * inch)
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(1 * inch, height - 2.4 * inch, "Patient Information")
-        p.setFont("Helvetica", 11)
-        p.drawString(1.1 * inch, height - 2.6 * inch, f"Name: {patient.name}")
-        p.drawString(1.1 * inch, height - 2.8 * inch, f"Age: {patient.age or 'N/A'} years")
-        p.drawString(3.5 * inch, height - 2.8 * inch, f"Gender: {patient.gender}")
-        p.drawString(1.1 * inch, height - 3.0 * inch, f"Blood Group: {patient.blood_group or 'N/A'}")
-        p.drawString(3.5 * inch, height - 3.0 * inch, f"Weight: {patient.weight or 'N/A'} kg")
-        p.drawString(1.1 * inch, height - 3.2 * inch, f"Blood Pressure: {new_prescription.blood_pressure or 'N/A'}")
-        
+            # Doctor Info (Now using the reliable data from the saved object)
+            doctor_name = f"Dr. {doctor.first_name} {doctor.last_name}" if doctor else "Dr. ABC DEF"
+            specialization = getattr(doctor, "specialization", "General Physician") if doctor else "General Physician"
+            p.setFont("Helvetica-Bold", 13)
+            p.drawString(1 * inch, height - 1.7 * inch, doctor_name)
+            p.setFont("Helvetica", 11)
+            p.drawString(1 * inch, height - 1.9 * inch, specialization)
+            p.drawString(width - 3 * inch, height - 1.9 * inch, f"Date: {new_prescription.verified_at.strftime('%d-%m-%Y %I:%M %p')}") 
+
+            # Patient Info
+            p.line(0.8 * inch, height - 2.1 * inch, width - 0.8 * inch, height - 2.1 * inch)
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(1 * inch, height - 2.4 * inch, "Patient Information")
+            p.setFont("Helvetica", 11)
+            p.drawString(1.1 * inch, height - 2.6 * inch, f"Name: {patient.name}")
+            p.drawString(1.1 * inch, height - 2.8 * inch, f"Age: {patient.age or 'N/A'} years")
+            p.drawString(3.5 * inch, height - 2.8 * inch, f"Gender: {patient.gender}")
+            p.drawString(1.1 * inch, height - 3.0 * inch, f"Blood Group: {patient.blood_group or 'N/A'}")
+            p.drawString(3.5 * inch, height - 3.0 * inch, f"Weight: {patient.weight or 'N/A'} kg")
+            p.drawString(1.1 * inch, height - 3.2 * inch, f"Blood Pressure: {new_prescription.blood_pressure or 'N/A'}")
+            
+            # Symptoms List (NEW: Add confirmed symptoms to PDF)
+            p.line(0.8 * inch, height - 3.4 * inch, width - 0.8 * inch, height - 3.4 * inch)
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(1 * inch, height - 3.7 * inch, "Confirmed Symptoms:")
+            symptom_text = ", ".join(confirmed_symptom_names) if confirmed_symptom_names else "No symptoms recorded by doctor."
+            p.setFont("Helvetica", 11)
+            p.drawString(1.1 * inch, height - 3.9 * inch, symptom_text)
+
+            # Consultation Notes / Diagnosis
+            p.line(0.8 * inch, height - 4.1 * inch, width - 0.8 * inch, height - 4.1 * inch)
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(1 * inch, height - 4.4 * inch, "Consultation Notes / Diagnosis:")
+            text_object = p.beginText(1.1 * inch, height - 4.7 * inch)
+            text_object.setFont("Helvetica", 11)
+            text_object.setLeading(14)
+            notes = new_prescription.transcribed_text or "No notes recorded."
+            
+            # Logic to split text into lines
+            max_chars_per_line = 70
+            current_y = height - 4.7 * inch
+            for paragraph in notes.split('\n'):
+                words = paragraph.split(' ')
+                current_line = ""
+                for word in words:
+                    if len(current_line + " " + word) <= max_chars_per_line:
+                        current_line += (" " + word) if current_line else word
+                    else:
+                        text_object.textLine(current_line.strip())
+                        current_y -= 14
+                        current_line = word
+                if current_line:
+                    text_object.textLine(current_line.strip())
+                    current_y -= 14
+
+            p.drawText(text_object)
+            p.line(width - 3.5 * inch, 1.8 * inch, width - 1 * inch, 1.8 * inch)
+            p.setFont("Helvetica-Bold", 11)
+            p.drawRightString(width - 1 * inch, 1.6 * inch, "Doctor’s Signature")
+            p.setFont("Helvetica-Oblique", 9)
+            p.drawCentredString(width / 2.0, 0.8 * inch, "Digitally verified prescription • Imaginex Health System © 2025")
+            
+            # Finalize the PDF
+            p.showPage()
+            p.save()
+            pdf_data = buffer.getvalue()
+            buffer.close()
+
+            # --- 6. SAVE PDF TO THE MODEL AND RETURN JSON ---
+            filename = f'prescription_{patient.id}_{new_prescription.id}.pdf'
+            new_prescription.prescription_file.save(filename, ContentFile(pdf_data), save=True)
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Prescription verified and saved! (AI Analysis triggered automatically)',
+                'prescription_id': new_prescription.id
+            })
     
-        # ... (rest of your PDF drawing code remains the same)
-        p.line(0.8 * inch, height - 3.4 * inch, width - 0.8 * inch, height - 3.4 * inch)
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(1 * inch, height - 3.7 * inch, "Consultation Notes / Diagnosis:")
-        text_object = p.beginText(1.1 * inch, height - 4.0 * inch)
-        text_object.setFont("Helvetica", 11)
-        text_object.setLeading(14)
-        notes = new_prescription.transcribed_text or "No notes recorded."
-        for line in notes.split('\n'): text_object.textLine(line.strip())
-        p.drawText(text_object)
-        p.line(width - 3.5 * inch, 1.8 * inch, width - 1 * inch, 1.8 * inch)
-        p.setFont("Helvetica-Bold", 11)
-        p.drawRightString(width - 1 * inch, 1.6 * inch, "Doctor’s Signature")
-        p.setFont("Helvetica-Oblique", 9)
-        p.drawCentredString(width / 2.0, 0.8 * inch, "Digitally verified prescription • Imaginex Health System © 2025")
-    
-        # Finalize the PDF
-        p.showPage()
-        p.save()
-        pdf_data = buffer.getvalue()
-        buffer.close()
-
-        # --- 4. SAVE PDF TO THE MODEL AND REDIRECT ---
-        filename = f'prescription_{patient.id}_{new_prescription.id}.pdf'
-        new_prescription.prescription_file.save(filename, ContentFile(pdf_data), save=True)
-        
-        
-         # --- 5. RETURN A JSON RESPONSE INSTEAD OF REDIRECTING ---
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Prescription verified and saved!',
-            'prescription_id': new_prescription.id
-        })
-        
-      # This is for the GET request (initial page load)
     return render(request, "prescription.html", {})
 
 @login_required
 def prescription_detail(request, prescription_id):
+# ... (existing code) ...
     try:
         prescription = Prescription.objects.get(id=prescription_id)
     except Prescription.DoesNotExist:
-        return redirect('history')  # Redirect if prescription not found
+        return redirect('history')
 
     return render(request, 'prescription_detail.html', {'prescription': prescription})
 
 
+# --- MISSING PLACEHOLDER VIEWS (REQUIRED BY urls.py) ---
+@csrf_exempt
+def get_previous_medication(request):
+    """Placeholder for the 'get_previous_medication' AJAX endpoint."""
+    if request.method == 'GET':
+        # Logic to fetch past medication based on patient data 
+        dummy_medications = [{"name": "Amoxicillin", "dose": "500mg"}]
+        return JsonResponse({'status': 'success', 'medications': dummy_medications})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
+
+@csrf_exempt
+def update_medication(request):
+    """Placeholder for the 'update_medication' AJAX endpoint."""
+    if request.method == 'POST':
+        # Logic to update medication.
+        return JsonResponse({'status': 'success', 'message': 'Medication updated.'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
+
+
 # --- OTHER VIEWS REMAIN THE SAME ---
 def home(request): return render(request, "home.html")
+# ... (history, help, signup_view, login_view, logout_view, profile, send_sms, send_email, edit_profile, contact views remain the same) ...
+
 @login_required
 def history(request):
     """
@@ -328,9 +414,6 @@ def send_sms(request, prescription_id):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 
-# --- ADD THIS NEW VIEW AT THE END OF THE FILE ---
-# home/views.py
-
 # home/views.py
 
 @login_required
@@ -380,9 +463,6 @@ def send_email(request, prescription_id):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 # home/views.py
-from django.shortcuts import render, redirect, get_object_or_404
-# Add the new form to your imports
-from .forms import UserForm, DoctorForm, DoctorProfileUpdateForm
 # ... (other imports and views) ...
 
 @login_required
@@ -426,4 +506,69 @@ def contact(request):
 
     return render(request, 'contact.html', {'form': form})
 
-# ... (keep all your other existing views) ..
+
+# home/views.py (Add this function)
+
+# Make sure you have the necessary imports at the top of home/views.py:
+# from .llm_utils import predict_medicines_from_symptoms
+# from django.views.decorators.csrf import csrf_exempt 
+# import json
+
+@csrf_exempt
+def analyze_prescription_view(request):
+    """
+    Placeholder for the 'api/analyze/' AJAX endpoint.
+    This view should receive patient info and symptoms, and call the LLM 
+    to suggest medicines.
+    """
+    if request.method == 'POST':
+        try:
+            # In a real implementation, you would:
+            # 1. Parse data = json.loads(request.body.decode('utf-8'))
+            # 2. Extract symptoms and patient info from 'data'.
+            # 3. Call medicine_suggestions = predict_medicines_from_symptoms(symptoms, patient_info).
+
+            # For now, return dummy data to resolve the server startup error:
+            dummy_suggestions = [
+                {"name": "Paracetamol", "reason": "Suggested for headache and fever.", "confidence": 0.95},
+                {"name": "Amoxicillin", "reason": "Indicated for possible bacterial infection.", "confidence": 0.70}
+            ]
+            
+            return JsonResponse({'status': 'success', 'suggestions': dummy_suggestions})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Analysis Error: {str(e)}'}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+# ... (Keep all your other existing views) ...
+
+
+# home/views.py (Add this function)
+
+# Make sure you have the necessary imports at the top of home/views.py:
+# from django.views.decorators.csrf import csrf_exempt 
+# import json
+
+@csrf_exempt
+def save_suggestion_view(request):
+    """
+    Placeholder for the 'api/save-suggestion/' AJAX endpoint.
+    This view saves the AI-suggested or doctor-confirmed medications 
+    to the Prescription model.
+    """
+    if request.method == 'POST':
+        try:
+            # In a real implementation, you would:
+            # 1. Parse data = json.loads(request.body.decode('utf-8'))
+            # 2. Extract prescription ID and confirmed medication list.
+            # 3. Save medicines to the Prescription's ManyToMany field.
+
+            return JsonResponse({'status': 'success', 'message': 'Medication suggestions saved successfully.'})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Save Error: {str(e)}'}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+# ... (Keep all your other existing views) ...

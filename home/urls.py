@@ -14,14 +14,19 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('send-email/<int:prescription_id>/',
-         views.send_email, name='send-email'),  # <-- ADD THIS
+         views.send_email, name='send-email'), 
     path('profile/edit/', views.edit_profile, name='edit-profile'),
     path('get_previous_medication/', views.get_previous_medication,
          name='get_previous_medication'),
     path('transcribe-audio/', views.transcribe_audio, name='transcribe-audio'),
+    
+    # --- FIX 1: Ensure the predict-symptoms URL is defined ---
+    path('api/predict-symptoms/', views.get_ai_symptoms, name='predict-symptoms'), 
+
+    # --- Existing (and potentially missing) views: ---
     path('update_medication', views.update_medication, name='update_medication'),
-    # --- NEW AJAX ENDPOINTS FOR LLM/AUDIO ---
-    path('api/transcribe/', views.transcribe_audio_view, name='transcribe-audio'),
+    # home/urls.py (Correction)
+    path('api/transcribe/', views.transcribe_audio, name='transcribe-audio'),
     path('api/analyze/', views.analyze_prescription_view,
          name='analyze-prescription'),
     path('api/save-suggestion/', views.save_suggestion_view, name='save-suggestion'),

@@ -1,1 +1,46 @@
 Error: Failed to upload audio: ('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))
+
+
+
+The `DoesNotExist` error you're encountering at `/login/` when attempting to access `{% provider_login_url 'google' %}` is a common issue with the **Django `allauth` package**.
+
+The error `DoesNotExist` at `allauth.socialaccount.adapter.py, line 302, in get_app` specifically means that **`allauth` cannot find the Google application settings** in the database, even though you are trying to use the Google social login URL.
+
+This usually occurs because the application hasn't been configured or registered in your Django Admin site.
+
+---
+
+## 🛠️ Solution: Configure Google Social Application in Django Admin
+
+To resolve this `DoesNotExist` error, you must register your Google application details in the Django Administration interface:
+
+### Step 1: Obtain Google Credentials
+
+1.  Go to the Google API Console and create a new project.
+2.  Enable the **Google People API** (or whichever API you need for social login, though `allauth` usually guides you).
+3.  Go to **Credentials** and create an **OAuth client ID** for a "Web application."
+4.  Configure the **Authorized redirect URIs**. The default URI for Django `allauth` is:
+    * `http://127.0.0.1:8000/accounts/google/login/callback/`
+5.  Save the credentials and note down the **Client ID** and **Client Secret**.
+
+### Step 2: Configure the Site in Django Admin
+
+Your `settings.py` includes `SITE_ID = 1`. Ensure that the corresponding site entry in your database matches your development URL:
+
+1.  Navigate to your Django Admin site (e.g., `http://127.0.0.1:8000/admin/`).
+2.  Under the **SITES** section, click **Sites**.
+3.  Edit the site with ID 1 (or create a new one).
+4.  Set the **Domain name** and **Display name** to `127.0.0.1:8000`.
+
+### Step 3: Register the Google App
+
+1.  In the Django Admin site, under the **ACCOUNTS** section, click **Social applications**.
+2.  Click **+ Add social application**.
+3.  **Provider**: Select **Google**.
+4.  **Name**: Enter a friendly name (e.g., "Google Login for IXH").
+5.  **Client ID**: Paste the **Client ID** you obtained from Google.
+6.  **Secret key**: Paste the **Client Secret** you obtained from Google.
+7.  **Sites**: Select your active site (`127.0.0.1:8000`).
+8.  Click **SAVE**.
+
+Once the Google Social Application is saved in the database via the admin site, the `allauth` function `get_app()` will be able to retrieve the necessary credentials, and the `{% provider_login_url 'google' %}` link in `login.html` will function correctly.

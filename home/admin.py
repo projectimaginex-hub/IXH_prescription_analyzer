@@ -28,12 +28,10 @@ class PatientAdmin(admin.ModelAdmin):
     """
     Customizes the admin interface for the Patient model.
     """
-    list_display = ('name', 'age', 'gender', 'phone', 'date_created')
-    search_fields = ('name', 'phone')
+    list_display = ('name', 'email', 'age', 'gender', 'phone', 'date_created') 
+    search_fields = ('name', 'phone', 'email') 
     list_filter = ('gender', 'date_created')
     readonly_fields = ('date_created',)
-    list_display = ('name', 'email', 'age', 'gender', 'phone', 'date_created') # <-- ADD 'email'
-    search_fields = ('name', 'phone', 'email') # <-- ADD 'email'
 
 
 @admin.register(Medicine)
@@ -45,14 +43,38 @@ class MedicineAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
+# --- UPDATED ADMIN CLASS FOR SYMPTOM ---
 @admin.register(Symptom)
 class SymptomAdmin(admin.ModelAdmin):
     """
-    Customizes the admin interface for the Symptom model.
+    Customizes the admin interface for the Symptom model to show related patients.
     """
-    search_fields = ('name',)
+    
+    def get_patients_with_symptom(self, obj):
+        """
+        Retrieves the name and ID of patients associated with this symptom via Prescriptions.
+        """
+        # Traverse the M2M relationship (Symptom -> Prescription -> Patient)
+        patients = Patient.objects.filter(prescriptions__symptoms=obj).distinct()
+        
+        # Format the output as a list of "Name (ID)" strings
+        patient_list = [f"{p.name} ({p.id})" for p in patients]
+        
+        # Display the first few patients, up to 3, joined by commas.
+        # Use short_description to ensure HTML is rendered correctly if needed.
+        return ", ".join(patient_list[:3]) + (f", ... ({len(patient_list) - 3} more)" if len(patient_list) > 3 else "")
 
-# --- NEW: Register the Audio model with the admin site ---
+    get_patients_with_symptom.short_description = 'Associated Patients (Name & ID)'
+    
+    list_display = ('name', 'get_patients_with_symptom')
+    search_fields = ('name',)
+    
+    # Enable searching by patient name via the Prescription intermediate model
+    # Note: Direct search by patient ID/Name in this column is complex and often requires a custom Form,
+    # but the patient names will be visible in the list.
+    list_filter = ('prescription__date_created',)
+
+
 @admin.register(Audio)
 class AudioAdmin(admin.ModelAdmin):
     list_display = ('id', 'date_created')
