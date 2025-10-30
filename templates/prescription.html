@@ -65,14 +65,24 @@
       </div>
     </div>
     <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
+    <input type="hidden" name="confirmedSymptoms" id="confirmedSymptoms"> <h3 class="section-title">Symptoms Analysed:</h3>
     
-    <h3 class="section-title">Symptoms Analysed:</h3>
-    <div class="symptom-input-group">
-      <input type="text" id="symptomInput" placeholder="Enter symptom and click Add">
+    <div class="symptom-input-group" style="margin-bottom: 10px;">
+      <button class="btn btn-secondary" type="button" id="predictSymptomsBtn">🧠 Get AI Symptoms</button>
+      <span id="symptomStatus" style="margin-left: 15px; font-style: italic;"></span>
+    </div>
+
+    <div id="aiSymptomOptions" class="ai-symptom-options">
+      <p style="color: #6b7280; text-align: center;">Click 'Get AI Symptoms' after transcription is complete.</p>
+    </div>
+    
+    <h4 style="margin-top: 20px; border-bottom: none;">Confirmed Symptoms:</h4>
+    <div class="symptoms-list" id="symptomsList">
+       </div>
+    <div class="symptom-input-group" style="margin-top: 15px;">
+      <input type="text" id="symptomInput" placeholder="Add custom symptom and click Add">
       <button class="btn" type="button" id="addSymptomBtn">Add Symptom</button>
     </div>
-    <div class="symptoms-list" id="symptomsList"></div>
-
     <h3 class="section-title">Suggested Medicine:</h3>
     <div class="medicine-list" id="medicineList">
         <p style="color: #6b7280; text-align: center;">AI suggestions will appear here.</p>
@@ -100,8 +110,53 @@
 
 <style>
   .symptoms-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; min-height: 20px; }
-  .symptom-tag { background-color: #e0e7ff; color: #4338ca; padding: 5px 10px; border-radius: 12px; font-size: 0.9em; font-weight: 500; }
-  
+  .symptom-tag { 
+    background-color: #e0e7ff; 
+    color: #4338ca; 
+    padding: 5px 10px; 
+    border-radius: 12px; 
+    font-size: 0.9em; 
+    font-weight: 500; 
+    position: relative;
+    cursor: pointer;
+  }
+  .symptom-tag.confirmed {
+    background-color: #10b981; /* Green for confirmed */
+    color: white;
+    cursor: default;
+  }
+  .symptom-tag .remove-btn {
+    margin-left: 8px;
+    color: #4338ca;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .symptom-tag.confirmed .remove-btn {
+    color: white;
+  }
+  .ai-symptom-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
+    min-height: 50px;
+  }
+  .ai-symptom-option {
+    background-color: #f3f4f6;
+    color: #4b5563;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .ai-symptom-option:hover {
+    background-color: #e5e7eb;
+    color: #1f2937;
+  }
+
   /* Styling for the validation error messages */
   .error-message {
     color: #ef4444; /* Red */
@@ -134,7 +189,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopBtn = document.getElementById("stopBtn");
     const indicator = document.getElementById("recordingIndicator");
     const audioPlayback = document.getElementById("audioPlayback");
+    const predictSymptomsBtn = document.getElementById("predictSymptomsBtn"); 
+    const aiSymptomOptions = document.getElementById("aiSymptomOptions");     
+    const symptomStatus = document.getElementById("symptomStatus");           
+    const confirmedSymptomsField = document.getElementById("confirmedSymptoms"); 
+
     let mediaRecorder, audioChunks = [], streamReference;
+    let confirmedSymptoms = new Set(); // Stores confirmed symptoms for submission
 
     // --- VALIDATION FIELD REFERENCES ---
     const patientName = document.getElementById('patientName');
@@ -189,23 +250,117 @@ document.addEventListener('DOMContentLoaded', () => {
     weight.addEventListener('input', () => validateField(weight, weightError, isWeight));
     bp.addEventListener('input', () => validateField(bp, bpError, isBP));
 
-    // === Event Listeners ===
-    refreshBtn.addEventListener('click', () => location.reload());
+    // === SYMPTOM MANAGEMENT FUNCTIONS ===
 
-    addSymptomBtn.addEventListener('click', () => {
-        const symptomText = symptomInput.value.trim();
-        if (symptomText) {
+    const renderConfirmedSymptoms = () => {
+        symptomsList.innerHTML = '';
+        // Update hidden field with comma-separated list for form submission
+        confirmedSymptomsField.value = Array.from(confirmedSymptoms).join(','); 
+
+        confirmedSymptoms.forEach(symptomText => {
             const symptomTag = document.createElement('div');
-            symptomTag.className = 'symptom-tag';
-            symptomTag.textContent = symptomText;
+            symptomTag.className = 'symptom-tag confirmed';
+            symptomTag.innerHTML = `${symptomText} <span class="remove-btn">x</span>`;
+            
+            symptomTag.querySelector('.remove-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                confirmedSymptoms.delete(symptomText);
+                renderConfirmedSymptoms();
+            });
+
             symptomsList.appendChild(symptomTag);
-            symptomInput.value = '';
+        });
+    }
+
+    const addSymptom = (text) => {
+        const symptomText = text.trim();
+        // Capitalize for consistency
+        const capitalizedText = symptomText.charAt(0).toUpperCase() + symptomText.slice(1).toLowerCase();
+        
+        if (capitalizedText && !confirmedSymptoms.has(capitalizedText)) {
+            confirmedSymptoms.add(capitalizedText);
+            renderConfirmedSymptoms();
+        }
+    }
+
+    // Add Custom Symptom Button Handler
+    addSymptomBtn.addEventListener('click', () => {
+        addSymptom(symptomInput.value);
+        symptomInput.value = '';
+    });
+
+    // === NEW: GET AI SYMPTOMS LOGIC ===
+    predictSymptomsBtn.addEventListener('click', async () => {
+        const text = transcriptionText.value.trim();
+        if (!text) {
+            symptomStatus.textContent = 'Please complete the recording and transcription first.';
+            symptomStatus.style.color = '#f59e0b';
+            return;
+        }
+
+        symptomStatus.textContent = 'Analyzing text for symptoms...';
+        symptomStatus.style.color = '#3b82f6';
+        aiSymptomOptions.innerHTML = '';
+        
+        // Collect necessary patient info
+        const patientData = {
+            transcribed_text: text,
+            age: age.value,
+            gender: document.querySelector('[name="gender"]').value,
+            weight: weight.value
+        };
+
+        try {
+            const response = await fetch("{% url 'predict-symptoms' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(patientData)
+            });
+
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                symptomStatus.textContent = `Found ${data.symptoms.length} potential symptoms. Click to confirm.`;
+                symptomStatus.style.color = '#10b981';
+                
+                if (data.symptoms.length === 0) {
+                     aiSymptomOptions.innerHTML = '<p style="color: #6b7280; text-align: center;">No specific symptoms were extracted by the AI.</p>';
+                     return;
+                }
+
+                data.symptoms.forEach(symptom => {
+                    const option = document.createElement('div');
+                    option.className = 'ai-symptom-option';
+                    option.textContent = symptom;
+                    option.title = "Click to add to confirmed list";
+                    // Click handler for AI symptom options
+                    option.addEventListener('click', () => {
+                        addSymptom(symptom);
+                        option.style.display = 'none'; // Hide option after clicking it
+                    });
+                    aiSymptomOptions.appendChild(option);
+                });
+
+            } else { 
+                throw new Error(data.message || 'AI analysis failed.'); 
+            }
+        } catch (error) {
+            symptomStatus.textContent = 'Error during AI analysis: ' + error.message;
+            symptomStatus.style.color = '#ef4444';
+            aiSymptomOptions.innerHTML = '<p style="color: #ef4444; text-align: center;">Error loading suggestions.</p>';
+            console.error('AI Symptom Prediction Error:', error);
         }
     });
 
+    // === Original Form Submission Logic ===
     prescriptionForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
+        // Check form validity
         const isNameValid = validateField(patientName, nameError, isName);
         const isPhoneValid = validateField(phone, phoneError, isPhone);
         const isEmailValid = validateField(email, emailError, isEmail);
@@ -222,7 +377,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         statusMessage.textContent = 'Verifying and generating PDF...';
         sendEmailBtn.disabled = true;
+        
+        // Ensure hidden fields are updated right before submission
         hiddenTranscriptionText.value = transcriptionText.value;
+        confirmedSymptomsField.value = Array.from(confirmedSymptoms).join(','); // IMPORTANT
+        
         const formData = new FormData(prescriptionForm);
         try {
             const response = await fetch("{% url 'prescription' %}", { method: 'POST', body: formData });
@@ -239,6 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Form submission error:', error);
         }
     });
+
+    // ... (Original sendEmailBtn logic remains the same) ...
 
     sendEmailBtn.addEventListener('click', async () => {
         const prescriptionId = sendEmailBtn.dataset.prescriptionId;
@@ -270,6 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.status === 'success') {
                 transcriptionText.value = data.text;
+                // NEW: Automatically prompt for AI symptoms after successful transcription
+                predictSymptomsBtn.click(); 
             } else { throw new Error(data.message || 'Transcription failed.'); }
         } catch (error) {
             transcriptionText.value = "Error: " + error.message;
@@ -304,7 +467,9 @@ document.addEventListener('DOMContentLoaded', () => {
       stopBtn.style.display = "none";
       indicator.style.display = "none";
     });
+
+    // Initial render of confirmed symptoms list (should be empty initially)
+    renderConfirmedSymptoms();
 });
 </script>
 {% endblock %}
-
