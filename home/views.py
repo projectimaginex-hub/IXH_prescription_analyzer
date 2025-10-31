@@ -25,6 +25,9 @@ from django.db.models import Q
 from .models import Patient, Prescription, Doctor, Symptom, Medicine, Audio, ContactSubmission
 from .llm_utils import extract_symptoms_from_text  # ADDED LLM Import
 from django.db import transaction  # ADDED
+from .models import Patient, Prescription, Doctor, Symptom, Medicine, Audio, ContactSubmission
+from .llm_utils import extract_symptoms_from_text, predict_medicines_from_symptoms # 👈 MODIFIED: Added medicine prediction
+from django.db import transaction
 
 from twilio.rest import Client
 
@@ -574,33 +577,38 @@ def contact(request):
 # from django.views.decorators.csrf import csrf_exempt
 # import json
 
+# home/views.py (Implementation of analyze_prescription_view)
+
 @csrf_exempt
 def analyze_prescription_view(request):
     """
-    Placeholder for the 'api/analyze/' AJAX endpoint.
-    This view should receive patient info and symptoms, and call the LLM 
-    to suggest medicines.
+    Handles the AJAX call to predict medicines using the Gemini LLM
+    based on confirmed symptoms and patient data.
     """
     if request.method == 'POST':
         try:
-            # In a real implementation, you would:
-            # 1. Parse data = json.loads(request.body.decode('utf-8'))
-            # 2. Extract symptoms and patient info from 'data'.
-            # 3. Call medicine_suggestions = predict_medicines_from_symptoms(symptoms, patient_info).
+            data = json.loads(request.body.decode('utf-8'))
+            confirmed_symptom_names = data.get('confirmed_symptoms', [])
+            patient_info = data.get('patient_info', {})
+            
+            if not confirmed_symptom_names:
+                return JsonResponse({'status': 'error', 'message': 'No symptoms provided for medicine prediction.'}, status=400)
+            
+            # 🔨 Prepare data for LLM
+            # The LLM utility expects symptoms in a specific JSON format
+            symptoms_data_for_llm = {"symptoms": [{"name": s} for s in confirmed_symptom_names]}
+            
+            #  Gemini Call for Medicine Prediction
+            med_suggestions = predict_medicines_from_symptoms(symptoms_data_for_llm, patient_info)
+            
+            return JsonResponse({'status': 'success', 'suggestions': med_suggestions})
 
-            # For now, return dummy data to resolve the server startup error:
-            dummy_suggestions = [
-                {"name": "Paracetamol",
-                    "reason": "Suggested for headache and fever.", "confidence": 0.95},
-                {"name": "Amoxicillin",
-                    "reason": "Indicated for possible bacterial infection.", "confidence": 0.70}
-            ]
-
-            return JsonResponse({'status': 'success', 'suggestions': dummy_suggestions})
-
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON format.'}, status=400)
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Analysis Error: {str(e)}'}, status=500)
-
+            traceback.print_exc()
+            return JsonResponse({'status': 'error', 'message': f'Medicine Prediction Error: {str(e)}'}, status=500)
+            
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 # ... (Keep all your other existing views) ...
@@ -634,3 +642,4 @@ def save_suggestion_view(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 # ... (Keep all your other existing views) ...
+

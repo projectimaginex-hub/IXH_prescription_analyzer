@@ -5,6 +5,7 @@
 {% block content %}
 
 <style>
+/* NOTE: All existing styles for detail-grid, detail-card, symptom-tags-list, etc., remain the same. */
 .detail-grid {
 display: grid;
 grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -63,31 +64,43 @@ overflow-y: auto;
 </header>
 
 <div class="detail-grid">
-<div class="detail-card">
-<h3>Patient Information</h3>
-<p><strong>Name:</strong> {{ prescription.patient.name }}</p>
-<p><strong>Phone:</strong> {{ prescription.patient.phone }}</p>
-<p><strong>Age:</strong> {{ prescription.patient.age|default:"N/A" }}</p>
-<p><strong>Gender:</strong> {{ prescription.patient.gender|default:"N/A" }}</p>
-</div>
 
-<div class="detail-card">
-    <h3>Vitals</h3>
-    <p><strong>Blood Group:</strong> {{ prescription.patient.blood_group|default:"N/A" }}</p>
-    <p><strong>Weight:</strong> {{ prescription.patient.weight|default:"N/A" }} kg</p>
-    <p><strong>Blood Pressure:</strong> {{ prescription.blood_pressure|default:"N/A" }}</p>
-</div>
-
-<div class="detail-card">
-    <h3>Confirmed Symptoms</h3>
-    <div class="symptom-tags-list">
-        {% for symptom in prescription.symptoms.all %}
-            <div class="symptom-tag-detail">{{ symptom.name }}</div>
-        {% empty %}
-            <p style="color: #6b7280;">No symptoms recorded.</p>
-        {% endfor %}
+    <div class="detail-card">
+        <h3>Patient Information</h3>
+        <p><strong>Name:</strong> {{ prescription.patient.name }}</p>
+        <p><strong>Phone:</strong> {{ prescription.patient.phone }}</p>
+        <p><strong>Age:</strong> {{ prescription.patient.age|default:"N/A" }}</p>
+        <p><strong>Gender:</strong> {{ prescription.patient.gender|default:"N/A" }}</p>
     </div>
-</div>
+
+    <div class="detail-card">
+        <h3>Vitals</h3>
+        <p><strong>Blood Group:</strong> {{ prescription.patient.blood_group|default:"N/A" }}</p>
+        <p><strong>Weight:</strong> {{ prescription.patient.weight|default:"N/A" }} kg</p>
+        <p><strong>Blood Pressure:</strong> {{ prescription.blood_pressure|default:"N/A" }}</p>
+    </div>
+
+    <div class="detail-card">
+        <h3>Confirmed Symptoms</h3>
+        <div class="symptom-tags-list">
+            {% for symptom in prescription.symptoms.all %}
+                <div class="symptom-tag-detail">{{ symptom.name }}</div>
+            {% empty %}
+                <p style="color: #6b7280;">No symptoms recorded.</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="detail-card">
+        <h3>Confirmed Medicines</h3>
+        <div class="symptom-tags-list">
+            {% for medicine in prescription.medicines.all %}
+                <div class="symptom-tag-detail">{{ medicine.name }}</div> 
+            {% empty %}
+                <p style="color: #6b7280;">No medicines recorded.</p>
+            {% endfor %}
+        </div>
+    </div>
 </div>
 
 <div class="card" style="margin-top: 2rem;">

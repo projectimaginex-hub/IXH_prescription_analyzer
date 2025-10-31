@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Prescription - Doctor App{% endblock %}
 
+
 {% block content %}
 <header class="page-header">
   <h1>Capture Conversation 🎙️</h1>
@@ -65,7 +66,10 @@
       </div>
     </div>
     <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
-    <input type="hidden" name="confirmedSymptoms" id="confirmedSymptoms"> <h3 class="section-title">Symptoms Analysed:</h3>
+    <input type="hidden" name="confirmedSymptoms" id="confirmedSymptoms">
+    <input type="hidden" name="confirmedMedicines" id="confirmedMedicines"> 
+    
+    <h3 class="section-title">Symptoms Analysed:</h3>
     
     <div class="symptom-input-group" style="margin-bottom: 10px;">
       <button class="btn btn-secondary" type="button" id="predictSymptomsBtn">🧠 Get AI Symptoms</button>
@@ -83,11 +87,17 @@
       <input type="text" id="symptomInput" placeholder="Add custom symptom and click Add">
       <button class="btn" type="button" id="addSymptomBtn">Add Symptom</button>
     </div>
-    <h3 class="section-title">Suggested Medicine:</h3>
-    <div class="medicine-list" id="medicineList">
-        <p style="color: #6b7280; text-align: center;">AI suggestions will appear here.</p>
+    
+    <h3 class="section-title" style="margin-top: 30px;">Suggested Medicine:</h3>
+    <div class="symptom-input-group" style="margin-bottom: 10px;">
+        <button class="btn btn-secondary" type="button" id="predictMedsBtn">💊 Get AI Medicines</button>
+        <span id="medStatus" style="margin-left: 15px; font-style: italic;"></span>
     </div>
-
+    
+    <h4 style="margin-top: 20px; border-bottom: none;">Confirmed Medicine List:</h4>
+    <div class="medicine-list" id="medicineList">
+        <p style="color: #6b7280; text-align: center;">Confirmed medicines will appear here.</p>
+    </div>
     <div class="action-buttons">
       <button class="btn" type="submit">✍️ Verify & Save</button>
       <button id="sendEmailBtn" class="btn btn-secondary" type="button" disabled>📧 Send Email</button>
@@ -96,7 +106,7 @@
   </form>
 
   <div class="card ai-card">
-    <h3>Suggested Medicine</h3>
+    <h3>Suggested Medicine (AI)</h3>
     <div id="aiMedicineList">
        <p>AI suggestions will appear here after analysis.</p>
     </div>
@@ -174,7 +184,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // === Element References ===
+    // === Element References (All remain the same) ===
     const prescriptionForm = document.getElementById("prescriptionForm");
     const statusMessage = document.getElementById("statusMessage");
     const sendEmailBtn = document.getElementById("sendEmailBtn");
@@ -193,11 +203,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiSymptomOptions = document.getElementById("aiSymptomOptions");     
     const symptomStatus = document.getElementById("symptomStatus");           
     const confirmedSymptomsField = document.getElementById("confirmedSymptoms"); 
+    
+    // NEW MEDICINE REFERENCES
+    const predictMedsBtn = document.getElementById("predictMedsBtn"); 
+    const medStatus = document.getElementById("medStatus");           
+    const aiMedicineList = document.getElementById("aiMedicineList"); 
+    const medicineList = document.getElementById("medicineList");     
+    const confirmedMedicinesField = document.getElementById("confirmedMedicines"); 
 
     let mediaRecorder, audioChunks = [], streamReference;
-    let confirmedSymptoms = new Set(); // Stores confirmed symptoms for submission
+    let confirmedSymptoms = new Set(); 
+    let confirmedMedicines = new Set(); 
 
-    // --- VALIDATION FIELD REFERENCES ---
+    // --- VALIDATION LOGIC (Full functions must be here) ---
+    // (Defining all validation helpers and event listeners for inputs)
     const patientName = document.getElementById('patientName');
     const email = document.getElementById('email');
     const phone = document.getElementById('phone');
@@ -213,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const weightError = document.getElementById('weightError');
     const bpError = document.getElementById('bpError');
 
-    // === VALIDATION LOGIC ===
     const validateField = (field, errorElement, validationFn) => {
         const isValid = validationFn(field.value.trim());
         if (!isValid) {
@@ -225,7 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return isValid;
     };
-
     const isName = (value) => /^[a-zA-Z\s\.']+$/.test(value);
     const isEmail = (value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     const isPhone = (value) => /^\+?[0-9\s-]{10,15}$/.test(value);
@@ -250,11 +267,11 @@ document.addEventListener('DOMContentLoaded', () => {
     weight.addEventListener('input', () => validateField(weight, weightError, isWeight));
     bp.addEventListener('input', () => validateField(bp, bpError, isBP));
 
+
     // === SYMPTOM MANAGEMENT FUNCTIONS ===
 
     const renderConfirmedSymptoms = () => {
         symptomsList.innerHTML = '';
-        // Update hidden field with comma-separated list for form submission
         confirmedSymptomsField.value = Array.from(confirmedSymptoms).join(','); 
 
         confirmedSymptoms.forEach(symptomText => {
@@ -274,7 +291,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const addSymptom = (text) => {
         const symptomText = text.trim();
-        // Capitalize for consistency
         const capitalizedText = symptomText.charAt(0).toUpperCase() + symptomText.slice(1).toLowerCase();
         
         if (capitalizedText && !confirmedSymptoms.has(capitalizedText)) {
@@ -283,13 +299,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Add Custom Symptom Button Handler
     addSymptomBtn.addEventListener('click', () => {
         addSymptom(symptomInput.value);
         symptomInput.value = '';
     });
 
-    // === NEW: GET AI SYMPTOMS LOGIC ===
+    // === NEW MEDICINE MANAGEMENT FUNCTIONS ===
+
+    const renderConfirmedMedicines = () => {
+        medicineList.innerHTML = '';
+        
+        const simpleMedNames = Array.from(confirmedMedicines).map(m => m.split(' (')[0]);
+        confirmedMedicinesField.value = simpleMedNames.join(','); 
+
+        confirmedMedicines.forEach(medFullText => {
+            const medTag = document.createElement('div');
+            medTag.className = 'symptom-tag confirmed'; 
+            medTag.innerHTML = `${medFullText} <span class="remove-btn">x</span>`;
+            
+            medTag.querySelector('.remove-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                confirmedMedicines.delete(medFullText);
+                renderConfirmedMedicines();
+            });
+
+            medicineList.appendChild(medTag);
+        });
+    }
+
+    const addMedicine = (name, composition) => {
+        const fullMedText = `${name.trim()} (${composition.trim()})`;
+        if (fullMedText && !confirmedMedicines.has(fullMedText)) {
+            confirmedMedicines.add(fullMedText);
+            renderConfirmedMedicines();
+        }
+    }
+
+    // === GET AI SYMPTOMS LOGIC (GPT-4) ===
     predictSymptomsBtn.addEventListener('click', async () => {
         const text = transcriptionText.value.trim();
         if (!text) {
@@ -297,12 +343,11 @@ document.addEventListener('DOMContentLoaded', () => {
             symptomStatus.style.color = '#f59e0b';
             return;
         }
-
+        // ... (rest of GPT-4 AJAX call logic remains the same) ...
         symptomStatus.textContent = 'Analyzing text for symptoms...';
         symptomStatus.style.color = '#3b82f6';
         aiSymptomOptions.innerHTML = '';
         
-        // Collect necessary patient info
         const patientData = {
             transcribed_text: text,
             age: age.value,
@@ -313,10 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch("{% url 'predict-symptoms' %}", {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                 body: JSON.stringify(patientData)
             });
 
@@ -337,10 +379,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     option.className = 'ai-symptom-option';
                     option.textContent = symptom;
                     option.title = "Click to add to confirmed list";
-                    // Click handler for AI symptom options
                     option.addEventListener('click', () => {
                         addSymptom(symptom);
-                        option.style.display = 'none'; // Hide option after clicking it
+                        option.style.display = 'none';
                     });
                     aiSymptomOptions.appendChild(option);
                 });
@@ -356,20 +397,91 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // === Original Form Submission Logic ===
+
+    // === NEW MEDICINE PREDICTION LOGIC (Gemini) ===
+    predictMedsBtn.addEventListener('click', async () => {
+        if (confirmedSymptoms.size === 0) {
+            medStatus.textContent = 'Please confirm symptoms before predicting medicines.';
+            medStatus.style.color = '#f59e0b';
+            return;
+        }
+
+        medStatus.textContent = 'Predicting medicines based on confirmed symptoms...';
+        medStatus.style.color = '#3b82f6';
+        aiMedicineList.innerHTML = '';
+        
+        const patientInfo = {
+            age: age.value,
+            gender: document.querySelector('[name="gender"]').value,
+            weight: weight.value,
+            bp: bp.value
+        };
+        const confirmedSymptomArray = Array.from(confirmedSymptoms);
+
+        try {
+            const response = await fetch("{% url 'analyze-prescription' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({
+                    confirmed_symptoms: confirmedSymptomArray,
+                    patient_info: patientInfo
+                })
+            });
+
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                medStatus.textContent = `Found ${data.suggestions.length} medicine suggestions. Click to confirm.`;
+                medStatus.style.color = '#10b981';
+                
+                if (data.suggestions.length === 0) {
+                     aiMedicineList.innerHTML = '<p style="color: #6b7280; text-align: center;">No medicine suggestions found.</p>';
+                     return;
+                }
+
+                data.suggestions.forEach(med => {
+                    const option = document.createElement('div');
+                    option.className = 'ai-symptom-option';
+                    // Display Name, Composition, and Reason
+                    option.innerHTML = `<strong>${med.name}</strong><br><small>${med.composition || 'N/A'}</small><br><small style="color:#6b7280;">Reason: ${med.reason}</small>`;
+                    option.title = `Click to add ${med.name} to confirmed list`;
+                    
+                    option.addEventListener('click', () => {
+                        addMedicine(med.name, med.composition || med.name); 
+                        option.style.display = 'none';
+                    });
+                    aiMedicineList.appendChild(option);
+                });
+
+            } else { 
+                throw new Error(data.message || 'AI medicine prediction failed.'); 
+            }
+        } catch (error) {
+            medStatus.textContent = 'Error during medicine prediction: ' + error.message;
+            medStatus.style.color = '#ef4444';
+            aiMedicineList.innerHTML = '<p style="color: #ef4444; text-align: center;">Error loading suggestions.</p>';
+            console.error('AI Medicine Prediction Error:', error);
+        }
+    });
+
+
+    // === MODIFIED: Original Form Submission Logic (Now Two-Step Save) ===
     prescriptionForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
-        // Check form validity
-        const isNameValid = validateField(patientName, nameError, isName);
-        const isPhoneValid = validateField(phone, phoneError, isPhone);
-        const isEmailValid = validateField(email, emailError, isEmail);
-        const isAgeValid = validateField(age, ageError, isAge);
-        const isBloodGroupValid = validateField(bloodGrp, bloodGrpError, isBloodGroup);
-        const isWeightValid = validateField(weight, weightError, isWeight);
-        const isBPValid = validateField(bp, bpError, isBP);
+        // 1. Validation check
+        const isFormValid = (
+            validateField(patientName, nameError, isName) &&
+            validateField(phone, phoneError, isPhone) &&
+            validateField(email, emailError, isEmail) &&
+            validateField(age, ageError, isAge) &&
+            validateField(bloodGrp, bloodGrpError, isBloodGroup) &&
+            validateField(weight, weightError, isWeight) &&
+            validateField(bp, bpError, isBP)
+        );
 
-        if (!isNameValid || !isPhoneValid || !isEmailValid || !isAgeValid || !isBloodGroupValid || !isWeightValid || !isBPValid) {
+        if (!isFormValid) {
             statusMessage.textContent = 'Please fix the errors before saving.';
             statusMessage.style.color = '#ef4444';
             return;
@@ -378,19 +490,38 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.textContent = 'Verifying and generating PDF...';
         sendEmailBtn.disabled = true;
         
-        // Ensure hidden fields are updated right before submission
+        // 2. Prepare Data
         hiddenTranscriptionText.value = transcriptionText.value;
-        confirmedSymptomsField.value = Array.from(confirmedSymptoms).join(','); // IMPORTANT
+        confirmedSymptomsField.value = Array.from(confirmedSymptoms).join(','); 
+        confirmedMedicinesField.value = Array.from(confirmedMedicines).map(m => m.split(' (')[0]).join(','); 
         
         const formData = new FormData(prescriptionForm);
         try {
+            // STEP 1: Submit main form (Saves Patient, Prescription, Symptoms, and generates PDF)
             const response = await fetch("{% url 'prescription' %}", { method: 'POST', body: formData });
+            
             if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
             const data = await response.json();
+            
             if (data.status === 'success') {
+                const prescriptionId = data.prescription_id;
+                
+                // STEP 2: Save confirmed medicines (Secondary AJAX call to save to M2M field)
+                if (confirmedMedicines.size > 0) {
+                     const medSaveResponse = await fetch("{% url 'save-suggestion' %}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                        body: JSON.stringify({
+                            prescription_id: prescriptionId,
+                            confirmed_meds: Array.from(confirmedMedicines).map(m => m.split(' (')[0]) 
+                        })
+                    });
+                    if (!medSaveResponse.ok) throw new Error('Failed to save medicines.');
+                }
+
                 statusMessage.textContent = data.message + " You can now send the email.";
                 statusMessage.style.color = '#10b981';
-                sendEmailBtn.dataset.prescriptionId = data.prescription_id;
+                sendEmailBtn.dataset.prescriptionId = prescriptionId;
                 sendEmailBtn.disabled = false;
             } else { throw new Error(data.message || 'An unknown error occurred.'); }
         } catch (error) {
@@ -399,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ... (Original sendEmailBtn logic remains the same) ...
+    // === Original sendEmailBtn logic remains the same) ===
 
     sendEmailBtn.addEventListener('click', async () => {
         const prescriptionId = sendEmailBtn.dataset.prescriptionId;
@@ -484,6 +615,12 @@ document.addEventListener('DOMContentLoaded', () => {
     symptomInput.value = '';
     statusMessage.textContent = '';
 
+    // Reset medicine fields
+    aiMedicineList.innerHTML = '<p>AI suggestions will appear here after analysis.</p>';
+    medStatus.textContent = '';
+    confirmedMedicines.clear();
+    renderConfirmedMedicines();
+    
     // Reset button visibility
     startBtn.style.display = "inline-block";
     stopBtn.style.display = "none";
@@ -508,8 +645,9 @@ document.addEventListener('DOMContentLoaded', () => {
       indicator.style.display = "none";
     });
 
-    // Initial render of confirmed symptoms list (should be empty initially)
+    // Initial renders
     renderConfirmedSymptoms();
+    renderConfirmedMedicines();
 });
 </script>
 {% endblock %}

@@ -1,3 +1,5 @@
+google-genai 
+python-dotenv
 Django==5.2.3
 altair==5.5.0
 annotated-types==0.7.0
