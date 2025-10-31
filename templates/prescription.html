@@ -460,6 +460,46 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+
+
+    // === NEW SESSION (REFRESH) BUTTON LOGIC ===
+    refreshBtn.addEventListener('click', () => {
+    // Stop any ongoing recording
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
+    if (streamReference) {
+        streamReference.getTracks().forEach(track => track.stop());
+    }
+
+    // Reset form fields and data
+    audioChunks = [];
+    audioPlayback.src = '';
+    transcriptionText.value = '';
+    hiddenTranscriptionText.value = '';
+    aiSymptomOptions.innerHTML = '<p style="color: #6b7280; text-align: center;">Click \'Get AI Symptoms\' after transcription is complete.</p>';
+    symptomStatus.textContent = '';
+    confirmedSymptoms.clear();
+    renderConfirmedSymptoms();
+    symptomInput.value = '';
+    statusMessage.textContent = '';
+
+    // Reset button visibility
+    startBtn.style.display = "inline-block";
+    stopBtn.style.display = "none";
+    indicator.style.display = "none";
+    sendEmailBtn.disabled = true;
+
+    // Visual feedback
+    refreshBtn.textContent = "🔄 Session Cleared!";
+    refreshBtn.style.color = "#10b981";
+    setTimeout(() => {
+        refreshBtn.textContent = "🔄 New Session";
+        refreshBtn.style.color = "";
+    }, 1500);
+});
+
+
     stopBtn.addEventListener("click", () => {
       if (mediaRecorder) mediaRecorder.stop();
       if (streamReference) streamReference.getTracks().forEach(track => track.stop());

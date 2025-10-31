@@ -14,14 +14,14 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('send-email/<int:prescription_id>/',
-         views.send_email, name='send-email'), 
+         views.send_email, name='send-email'),
     path('profile/edit/', views.edit_profile, name='edit-profile'),
     path('get_previous_medication/', views.get_previous_medication,
          name='get_previous_medication'),
     path('transcribe-audio/', views.transcribe_audio, name='transcribe-audio'),
-    
+
     # --- FIX 1: Ensure the predict-symptoms URL is defined ---
-    path('api/predict-symptoms/', views.get_ai_symptoms, name='predict-symptoms'), 
+    path('api/predict-symptoms/', views.get_ai_symptoms, name='predict-symptoms'),
 
     # --- Existing (and potentially missing) views: ---
     path('update_medication', views.update_medication, name='update_medication'),
