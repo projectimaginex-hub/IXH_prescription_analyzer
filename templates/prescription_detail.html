@@ -80,6 +80,16 @@ overflow-y: auto;
         <p><strong>Blood Pressure:</strong> {{ prescription.blood_pressure|default:"N/A" }}</p>
     </div>
 
+
+<div class="detail-card">
+    <h3>Patient Information</h3>
+    <p><strong>Name:</strong> {{ prescription.patient.name }}</p>
+    <p><strong>Phone:</strong> {{ prescription.patient.phone }}</p>
+    <p><strong>Age:</strong> {{ prescription.patient.age|default:"N/A" }}</p>
+    <p><strong>Gender:</strong> {{ prescription.patient.gender|default:"N/A" }}</p>
+    <p><strong>Address:</strong> {{ prescription.patient.address|default:"N/A" }}</p> 🏠 **NEW LINE**
+</div>
+
     <div class="detail-card">
         <h3>Confirmed Symptoms</h3>
         <div class="symptom-tags-list">
