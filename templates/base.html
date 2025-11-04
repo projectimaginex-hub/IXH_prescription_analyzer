@@ -49,6 +49,8 @@
     <a href="{% url 'home' %}" class="{% if request.path == '/' %}active{% endif %}">Home</a>
     <a href="{% url 'prescription' %}" class="{% if 'prescription' in request.path %}active{% endif %}">Prescriptions</a>
     <a href="{% url 'history' %}" class="{% if 'history' in request.path %}active{% endif %}">History</a>
+     <!-- NEW: Clinic Config Link -->
+    <a href="{% url 'clinic-config' %}" class="{% if 'clinic-config' in request.path %}active{% endif %}" >Clinic Setup</a>
     
     <a href="{% url 'profile' %}" class="{% if 'profile' in request.path %}active{% endif %}">Profile</a>
     <a href="{% url 'help' %}" class="{% if 'help' in request.path %}active{% endif %}">Help</a>

@@ -21,7 +21,21 @@ class DoctorProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = Doctor
         fields = ['first_name', 'last_name', 'specialization', 
-                  'phone', 'email', 'experience', 'profile_picture']
+                  'phone', 'email', 'experience', 'profile_picture']  
+        
+        
+# --- NEW FORM FOR CLINIC SETTINGS ---
+class ClinicInfoForm(forms.ModelForm):
+    """
+    Form for updating clinic-specific details and logo.
+    """
+    class Meta:
+        model = Doctor
+        fields = ['clinic_name', 'clinic_address', 'clinic_logo']
+        widgets = {
+            'clinic_address': forms.Textarea(attrs={'rows': 3}),
+        }
+
 
 # --- NEW FORM FOR CONTACT PAGE VALIDATION ---
 class ContactForm(forms.ModelForm):

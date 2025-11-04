@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bloodGrp = document.getElementById('bloodGrp');
     const weight = document.getElementById('weight');
     const bp = document.getElementById('bp');
-    const address = document.getElementById('address'); // ✅ NEW: Address Reference
+    const address = document.getElementById('address'); // ✅ Address Reference
 
     const nameError = document.getElementById('nameError');
     const emailError = document.getElementById('emailError');
@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bloodGrpError = document.getElementById('bloodGrpError');
     const weightError = document.getElementById('weightError');
     const bpError = document.getElementById('bpError');
-    const addressError = document.getElementById('addressError'); // ✅ NEW: Address Error Reference
+    const addressError = document.getElementById('addressError'); // ✅ Address Error Reference
 
 
     // === VALIDATION LOGIC ===
@@ -269,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bloodGrp.dataset.errorMessage = 'Valid formats: A+, O-, AB+, etc.';
     weight.dataset.errorMessage = 'Please enter a valid weight in kg.';
     bp.dataset.errorMessage = 'Valid format: 120/80.';
+    address.dataset.errorMessage = 'Address is required (at least 5 characters).'; // ✅ NEW: Address Error Message
 
     patientName.addEventListener('input', () => validateField(patientName, nameError, isName));
     phone.addEventListener('input', () => validateField(phone, phoneError, isPhone));
@@ -277,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bloodGrp.addEventListener('input', () => validateField(bloodGrp, bloodGrpError, isBloodGroup));
     weight.addEventListener('input', () => validateField(weight, weightError, isWeight));
     bp.addEventListener('input', () => validateField(bp, bpError, isBP));
-    address.addEventListener('input', () => validateField(address, addressError, isAddress)); // ✅ NEW: Address Listener
+    address.addEventListener('input', () => validateField(address, addressError, isAddress)); // ✅ Address Listener
 
     // === SYMPTOM MANAGEMENT FUNCTIONS (remain the same) ===
 
@@ -493,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
             validateField(bloodGrp, bloodGrpError, isBloodGroup) &&
             validateField(weight, weightError, isWeight) &&
             validateField(bp, bpError, isBP) &&
-            validateField(address, addressError, isAddress) // ✅ NEW: Address Validation Check
+            validateField(address, addressError, isAddress) // ✅ Address Validation Check
         );
 
         if (!isFormValid) {
@@ -546,8 +547,122 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ... (Original sendEmailBtn logic remains the same) ...
-    // ... (Original RECORDING & TRANSCRIPTION LOGIC remains the same) ...
+
+    sendEmailBtn.addEventListener('click', async () => {
+        const prescriptionId = sendEmailBtn.dataset.prescriptionId;
+        if (!prescriptionId) return;
+        statusMessage.textContent = 'Sending Email...';
+        sendEmailBtn.disabled = true;
+        try {
+            const response = await fetch(`/send-email/${prescriptionId}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+            const data = await response.json();
+            if (data.status === 'success') {
+                statusMessage.textContent = data.message;
+                statusMessage.style.color = '#10b981';
+            } else { throw new Error(data.message || 'Failed to send email.'); }
+        } catch (error) {
+            statusMessage.textContent = 'Error: ' + error.message;
+            sendEmailBtn.disabled = false;
+        }
+    });
     
+    // --- FULL RECORDING & TRANSCRIPTION LOGIC ---
+    const getTranscription = async (audioBlob) => {
+        transcriptionText.value = "Transcribing, please wait...";
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        formData.append('audio', audioBlob, 'recording.webm');
+        try {
+            const response = await fetch("{% url 'transcribe-audio' %}", { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.status === 'success') {
+                transcriptionText.value = data.text;
+                // NEW: Automatically prompt for AI symptoms after successful transcription
+                predictSymptomsBtn.click(); 
+            } else { throw new Error(data.message || 'Transcription failed.'); }
+        } catch (error) {
+            transcriptionText.value = "Error: " + error.message;
+        }
+    };
+
+    startBtn.addEventListener("click", async () => {
+      audioChunks = [];
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamReference = stream;
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorder.addEventListener("dataavailable", e => audioChunks.push(e.data));
+        mediaRecorder.addEventListener("stop", () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          audioPlayback.src = URL.createObjectURL(audioBlob);
+          getTranscription(audioBlob);
+        });
+        mediaRecorder.start();
+        startBtn.style.display = "none";
+        stopBtn.style.display = "inline-block";
+        indicator.style.display = "inline-block";
+      } catch (err) {
+        alert("Microphone access was denied.");
+      }
+    });
+
+// In prescription.html <script> block, inside document.addEventListener('DOMContentLoaded', ...)
+
+// ... (existing code)
+
+// === NEW SESSION (REFRESH) BUTTON LOGIC ===
+refreshBtn.addEventListener('click', () => {
+    // 1. Safely stop any ongoing recording and close the microphone stream
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+            mediaRecorder.stop();
+        } catch (e) { console.error("Error stopping mediaRecorder:", e); }
+    }
+    if (streamReference) {
+        streamReference.getTracks().forEach(track => track.stop());
+        streamReference = null; // Important: Clear the reference
+    }
+
+    // 2. Reset core data
+    audioChunks = [];
+    audioPlayback.src = '';
+    transcriptionText.value = '';
+    hiddenTranscriptionText.value = '';
+    
+    // 3. Reset Symptom UI/Data
+    aiSymptomOptions.innerHTML = '<p style="color: #6b7280; text-align: center;">Click \'Get AI Symptoms\' after transcription is complete.</p>';
+    symptomStatus.textContent = '';
+    confirmedSymptoms.clear();
+    renderConfirmedSymptoms(); // Calls render function
+    symptomInput.value = '';
+
+    // 4. Reset Medicine UI/Data
+    aiMedicineList.innerHTML = '<p>AI suggestions will appear here after analysis.</p>';
+    medStatus.textContent = '';
+    confirmedMedicines.clear();
+    renderConfirmedMedicines(); // Calls render function
+    
+    // 5. Reset Status/Buttons
+    statusMessage.textContent = '';
+    sendEmailBtn.disabled = true;
+    startBtn.style.display = "inline-block";
+    stopBtn.style.display = "none";
+    indicator.style.display = "none";
+    
+    // 6. Reset Form Fields (Ensure all form fields are cleared)
+    prescriptionForm.reset(); 
+
+    // Visual feedback
+    refreshBtn.textContent = "🔄 Session Cleared!";
+    refreshBtn.style.color = "#10b981";
+    setTimeout(() => {
+        refreshBtn.textContent = "🔄 New Session";
+        refreshBtn.style.color = "";
+    }, 1500);
+});
+
+
     stopBtn.addEventListener("click", () => {
       if (mediaRecorder) mediaRecorder.stop();
       if (streamReference) streamReference.getTracks().forEach(track => track.stop());

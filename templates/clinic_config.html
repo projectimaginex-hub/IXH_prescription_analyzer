@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Clinic Configuration{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <h1>🏥 Clinic Setup</h1>
+</header>
+
+<div class="card" style="max-width: 700px; margin: 0 auto;">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-success" style="background-color: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+    
+    <p>Use this page to set your clinic's branding and location details. This information will be automatically used to generate professional prescriptions.</p>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="{{ form.clinic_name.id_for_label }}">Clinic Name (Heading):</label>
+            {{ form.clinic_name }}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.clinic_address.id_for_label }}">Clinic Address (Footer Detail):</label>
+            {{ form.clinic_address }}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.clinic_logo.id_for_label }}">Prescription Logo/Symbol (Upload):</label>
+            <p style="font-size: 0.9em; color: #6b7280;">This logo will replace the "I-X-H" watermark in the background.</p>
+            {% if doctor_profile and doctor_profile.clinic_logo %}
+                <p>Current Logo: <img src="{{ doctor_profile.clinic_logo.url }}" style="max-height: 50px; border: 1px solid #ddd;" alt="Current Clinic Logo"></p>
+            {% endif %}
+            {{ form.clinic_logo }}
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 20px;">Save Clinic Settings</button>
+    </form>
+</div>
+{% endblock %}

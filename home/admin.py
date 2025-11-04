@@ -7,13 +7,16 @@ from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio , Co
 @admin.register(Doctor)
 class DoctorAdmin(admin.ModelAdmin):
     # --- UPDATED: Added new fields to the display ---
-    list_display = ('first_name', 'last_name', 'specialization', 'phone', 'email')
-    search_fields = ('first_name', 'last_name', 'email')
+    list_display = ('first_name', 'last_name', 'specialization', 'clinic_name', 'phone', 'email')
+    search_fields = ('first_name', 'last_name', 'email', 'clinic_name')
     fieldsets = (
         ("Professional Info", {
             "fields": ('user', 'first_name', 'last_name', 'specialization', 'experience')
         }),
-        # --- UPDATED: Added new fields to a new fieldset ---
+        # --- UPDATED: ADDED CLINIC DETAILS TO FIELDSET ---
+        ("Clinic Details (Branding)", {
+            "fields": ('clinic_name', 'clinic_address', 'clinic_logo')
+        }),
         ("Profile Details", {
             "fields": ('about', 'professional_details', 'profile_picture', 'signature')
         }),
@@ -150,7 +153,6 @@ class ContactSubmissionAdmin(admin.ModelAdmin):
     # Make all fields read-only, as you should not edit user messages
     readonly_fields = ('name', 'email', 'subject', 'message', 'created_at')
 
-# --- NEW ADMIN CLASS FOR LLM AUDITS ---
 @admin.register(LLMAudit)
 class LLMAuditAdmin(admin.ModelAdmin):
     list_display = ('prescription', 'model_name', 'created_at')

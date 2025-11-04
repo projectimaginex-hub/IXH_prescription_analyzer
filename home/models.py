@@ -44,7 +44,6 @@ class Audio(models.Model):
     transcribed_text = models.TextField(blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     
-    
 class Doctor(models.Model):
     """Stores the professional profile for a doctor."""
     # --- One-to-One Relationship ---
@@ -58,7 +57,12 @@ class Doctor(models.Model):
     experience = models.PositiveIntegerField(null=True, blank=True, help_text="Years of experience")
     profile_picture = models.ImageField(upload_to='doctor_pics/', blank=True, null=True)
     
-    # --- NEW FIELDS BASED ON YOUR NOTES ---
+    # --- NEW FIELDS FOR CLINIC CONFIGURATION (PERSISTENCE) ---
+    clinic_name = models.CharField(max_length=255, blank=True, null=True, help_text="Official name of the clinic/practice.")
+    clinic_address = models.CharField(max_length=255, blank=True, null=True, help_text="Address, Phone, Email (Pipe-separated if using the default form).")
+    clinic_logo = models.ImageField(upload_to='clinic_logos/', blank=True, null=True, help_text="Logo for the prescription watermark.")
+    
+    # --- EXISTING FIELDS ---
     about = models.TextField(blank=True, help_text="A short bio for the profile page.")
     professional_details = models.TextField(blank=True, help_text="Degrees, certifications, etc.")
     signature = models.ImageField(upload_to='doctor_signatures/', blank=True, null=True)

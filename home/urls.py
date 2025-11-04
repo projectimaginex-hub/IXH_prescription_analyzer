@@ -23,11 +23,11 @@ urlpatterns = [
     # --- FIX 1: Ensure the predict-symptoms URL is defined ---
     path('api/predict-symptoms/', views.get_ai_symptoms, name='predict-symptoms'),
 
+    # --- NEW: Clinic Configuration URL ---
+    path('clinic-config/', views.clinic_config_view, name='clinic-config'),
+    
     # --- Existing (and potentially missing) views: ---
     path('update_medication', views.update_medication, name='update_medication'),
-    # home/urls.py (Correction)
-    path('api/transcribe/', views.transcribe_audio, name='transcribe-audio'),
-    path('api/analyze/', views.analyze_prescription_view,
-         name='analyze-prescription'),
+    path('api/analyze-prescription/', views.analyze_prescription_view, name='analyze-prescription'),
     path('api/save-suggestion/', views.save_suggestion_view, name='save-suggestion'),
 ]
