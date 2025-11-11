@@ -1,0 +1,85 @@
+/* ✅ History Container */
+.history-container {
+    margin-top: 20px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Placeholder text when empty */
+  .history-container .placeholder {
+    text-align: center;
+    color: #9ca3af;
+    font-style: italic;
+    margin: 10px 0;
+  }
+  
+  /* Grid layout for cards */
+  .history-container .pdf-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+  }
+  
+  /* Each PDF card */
+  .pdf-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    border-radius: 10px;
+    padding: 14px 18px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  }
+  
+  .pdf-card:hover {
+    transform: translateY(-3px);
+    border-color: #2563eb;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.1);
+  }
+  
+  /* PDF icon */
+  .pdf-icon {
+    font-size: 24px;
+    color: #ef4444;
+    margin-right: 10px;
+  }
+  
+  /* PDF name/link */
+  .pdf-info {
+    flex: 1;
+    overflow: hidden;
+  }
+  
+  .pdf-link {
+    display: block;
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  
+  .pdf-link:hover {
+    text-decoration: underline;
+  }
+  
+  /* Download button */
+  .download-btn {
+    background: #2563eb;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 14px;
+    transition: background 0.2s;
+  }
+  
+  .download-btn:hover {
+    background: #1e40af;
+  }
+  

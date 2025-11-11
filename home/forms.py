@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Doctor , ContactSubmission
+from .models import Doctor, ContactSubmission
 
 
 class UserForm(forms.ModelForm):
@@ -17,13 +17,14 @@ class DoctorForm(forms.ModelForm):
         fields = ['first_name', 'last_name', 'specialization', 'phone',
                   'email', 'experience', 'profile_picture']
 
+
 class DoctorProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = Doctor
-        fields = ['first_name', 'last_name', 'specialization', 
-                  'phone', 'email', 'experience', 'profile_picture']  
-        
-        
+        fields = ['first_name', 'last_name', 'specialization',
+                  'phone', 'email', 'experience', 'profile_picture']
+
+
 # --- NEW FORM FOR CLINIC SETTINGS ---
 class ClinicInfoForm(forms.ModelForm):
     """

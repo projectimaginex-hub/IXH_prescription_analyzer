@@ -1,8 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Prescription - Doctor App{% endblock %}
 
 {% block content %}
-<header class="page-header">
+<header class="page-header"> 
+  <link rel="stylesheet" href="{% static 'css/prescription.css' %}">
+
   <h1>Capture Conversation 🎙️</h1>
   <div class="audio-controls">
     <button id="refreshBtn" class="btn btn-secondary">🔄 New Session</button>
@@ -69,6 +72,28 @@
         <input type="text" name="address" id="address" placeholder="Street, City, Zip">
         <span class="error-message" id="addressError"></span>
       </div>
+     
+      <div class="form-group">
+        <label>Allergy:</label>
+        <input type="text" name="allergy" id="allergy" placeholder="e.g., Dust, Penicillin">
+      </div>
+
+      
+        <div class="history-actions form-group">
+          <button class="btn btn-secondary" type="button" id="fetchBtn">📜 Fetch History</button>
+        </div>
+    <div id="medicationHistory" class="history-box form-group" style="display:none;">
+          <h4>Past Medication History:</h4>
+          <pre id="historyContent">No history yet.</pre>
+    </div>
+    <div id="historyContainer" class="p-3 border rounded bg-gray-50 mt-3">
+      <p class="text-gray-500">Previous prescriptions will appear here...</p>
+    </div>
+
+
+     
+
+
       
     </div>
     <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
@@ -229,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bloodGrp = document.getElementById('bloodGrp');
     const weight = document.getElementById('weight');
     const bp = document.getElementById('bp');
+    const allergy= document.getElementById('allergy');
     const address = document.getElementById('address'); // ✅ Address Reference
 
     const nameError = document.getElementById('nameError');
@@ -429,7 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
             age: age.value,
             gender: document.querySelector('[name="gender"]').value,
             weight: weight.value,
-            bp: bp.value
+            bp: bp.value,
+            allergy:allergy.value
         };
         const confirmedSymptomArray = Array.from(confirmedSymptoms);
 
@@ -546,6 +573,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
+  const fetchBtn = document.getElementById('fetchBtn');
+  const phoneInput = document.getElementById('phone');
+  const patientNameInput = document.getElementById('patientName');
+  const medBox = document.getElementById('previousMedication');
+  const historyContainer = document.getElementById("historyContainer");
+
+  fetchBtn.addEventListener("click", async () => {
+  const phone = phoneInput.value.trim();
+  const patientName = patientNameInput.value.trim();
+
+  if (!phone || !patientName) {
+    alert("⚠ Please enter both patient name and phone number.");
+    return;
+  }
+
+  fetchBtn.disabled = true;
+  fetchBtn.textContent = "Fetching...";
+
+  try {
+    const res = await fetch(
+      `/get_previous_medication?phone=${encodeURIComponent(phone)}&patientName=${encodeURIComponent(patientName)}`
+    );
+
+    // Handle HTTP errors
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+    }
+
+    const data = await res.json();
+
+    // Reset container
+    historyContainer.innerHTML = "";
+
+    if (data.status === "success") {
+      const heading = document.createElement("h3");
+      heading.textContent = "📋 Previous Prescriptions:";
+      historyContainer.appendChild(heading);
+
+      data.files.forEach((fileUrl, index) => {
+      const card = document.createElement("div");
+      card.className = "pdf-card";
+
+      card.innerHTML = `
+        <div class="pdf-info">
+          <span class="pdf-icon">📄</span>
+          <a href="${fileUrl}" target="_blank" class="pdf-link">
+            Prescription #${index + 1}
+          </a>
+        </div>
+        <a href="${fileUrl}" download class="download-btn">Download</a>
+      `;
+
+       historyContainer.appendChild(card);
+    });
+    } else if (data.status === "not_found") {
+      historyContainer.innerHTML = `<p class="text-gray-600">${data.message}</p>`;
+    } else {
+      throw new Error(data.message || "Unknown error occurred.");
+    }
+
+  } catch (err) {
+    console.error("Fetch history error:", err);
+    alert(`🚫 Failed to fetch history: ${err.message}`);
+    historyContainer.innerHTML = `<p class="text-red-500">❌ Error fetching history.</p>`;
+  } finally {
+    fetchBtn.textContent = "Fetch History";
+    fetchBtn.disabled = false;
+  }
+});
+
     // ... (Original sendEmailBtn logic remains the same) ...
 
     sendEmailBtn.addEventListener('click', async () => {
@@ -587,6 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     startBtn.addEventListener("click", async () => {
+
       audioChunks = [];
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -663,6 +762,8 @@ refreshBtn.addEventListener('click', () => {
 });
 
 
+
+
     stopBtn.addEventListener("click", () => {
       if (mediaRecorder) mediaRecorder.stop();
       if (streamReference) streamReference.getTracks().forEach(track => track.stop());
@@ -674,6 +775,11 @@ refreshBtn.addEventListener('click', () => {
     // Initial renders
     renderConfirmedSymptoms();
     renderConfirmedMedicines();
+
+
+
+
+
 });
 </script>
 {% endblock %}

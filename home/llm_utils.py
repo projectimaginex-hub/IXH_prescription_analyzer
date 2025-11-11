@@ -6,22 +6,25 @@ import logging
 from dotenv import load_dotenv
 
 # --- Google Gemini SDK Imports ---
-from google import genai
-from google.genai import types
-from google.genai.errors import APIError as GeminiAPIError
+# from google import genai
+import google.generativeai as genai
+
+
+from google.generativeai import types
+from google.api_core.exceptions import GoogleAPIError as GeminiAPIError
 
 # --- OpenAI SDK Imports ---
 from openai import OpenAI
-from openai import APIError as OpenAIAPIError 
+from openai import APIError as OpenAIAPIError
 
 logger = logging.getLogger(__name__)
 
 # --- API KEY CONFIGURATION ---
 load_dotenv()
 # Your Gemini Key is used for medicine prediction
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Your OpenAI Key will be used for symptom prediction later
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 # --- LLM Client Initialization ---
@@ -37,7 +40,8 @@ if GEMINI_API_KEY:
     except Exception as e:
         logger.error(f"Failed to initialize Gemini client: {e}")
 else:
-    logger.warning("GEMINI_API_KEY is missing. Medicine prediction will return dummy data.")
+    logger.warning(
+        "GEMINI_API_KEY is missing. Medicine prediction will return dummy data.")
 
 # 🧪 Initialize OpenAI Client (Will be None for now due to restriction)
 if OPENAI_API_KEY:
@@ -47,7 +51,8 @@ if OPENAI_API_KEY:
     except Exception as e:
         logger.error(f"Failed to initialize OpenAI client: {e}")
 else:
-    logger.warning("OPENAI_API_KEY is missing. Symptom prediction will return dummy data.")
+    logger.warning(
+        "OPENAI_API_KEY is missing. Symptom prediction will return dummy data.")
 
 
 # --- PROMPT DEFINITIONS ---
@@ -81,6 +86,7 @@ Output only a JSON array of medicine suggestions. The array must contain objects
 
 # --- UTILITY FUNCTIONS ---
 
+
 def _extract_json(text: str):
     """Safely extracts a JSON object or array from a string."""
     try:
@@ -98,7 +104,7 @@ def _extract_json(text: str):
         elif start_curly != -1 and end_curly != -1:
             # Treat as JSON object
             return json.loads(text[start_curly:end_curly+1])
-            
+
         return {}
 
 
@@ -115,7 +121,8 @@ def call_llm(task_type: str, prompt_text: str):
                 response = openai_client.chat.completions.create(
                     model="gpt-4",  # Using GPT-4 as requested
                     messages=[
-                        {"role": "system", "content": "You extract symptoms as JSON only."},
+                        {"role": "system",
+                            "content": "You extract symptoms as JSON only."},
                         {"role": "user", "content": prompt_text},
                     ],
                     temperature=0.0,
@@ -123,8 +130,9 @@ def call_llm(task_type: str, prompt_text: str):
                 )
                 return response.choices[0].message.content
             except OpenAIAPIError as e:
-                logger.error(f"OpenAI API Error (Symptom): {e}. Returning dummy data.")
-        
+                logger.error(f"OpenAI API Error (Symptom): {
+                             e}. Returning dummy data.")
+
         # Dummy Fallback for Symptoms (Required when GPT-4 is restricted)
         return '{"symptoms": [{"name": "Dummy Cough", "confidence": 0.8}, {"name": "Dummy Fever", "confidence": 0.9}], "summary": "API restricted. Using dummy data."}'
 
@@ -147,17 +155,19 @@ def call_llm(task_type: str, prompt_text: str):
                         }
                     }
                 )
-                
+
                 response = gemini_client.models.generate_content(
-                    model='gemini-2.5-flash', # Using efficient model for structured output
+                    model='gemini-2.5-flash',  # Using efficient model for structured output
                     contents=prompt_text,
                     config=config,
                 )
                 return response.text
             except GeminiAPIError as e:
-                logger.error(f"Gemini API Error (Medicine): {e}. Returning dummy data.")
+                logger.error(f"Gemini API Error (Medicine): {
+                             e}. Returning dummy data.")
             except Exception as e:
-                logger.error(f"Gemini processing error: {e}. Returning dummy data.")
+                logger.error(f"Gemini processing error: {
+                             e}. Returning dummy data.")
 
         # Dummy Fallback for Medicines (Required when Gemini key is missing or API fails)
         return '[{"name": "Dummy Paracetamol", "composition": "500mg (Gemini Test)", "reason": "Placeholder reason for successful call.", "confidence": 0.99}, {"name": "Dummy Antacid", "composition": "250mg", "reason": "Placeholder reason for successful call.", "confidence": 0.7}]'
@@ -175,12 +185,12 @@ def extract_symptoms_from_text(transcribed_text: str):
 def predict_medicines_from_symptoms(symptoms_json, patient_info):
     """Calls Gemini (or dummy) to predict medicines."""
     prompt_text = MEDICINE_PROMPT.format(
-        symptoms_json=json.dumps(symptoms_json), 
+        symptoms_json=json.dumps(symptoms_json),
         patient_info=json.dumps(patient_info)
     )
     raw = call_llm(task_type='medicine', prompt_text=prompt_text)
     result = _extract_json(raw)
-    
+
     # Ensure a list is returned
     return result if isinstance(result, list) else []
 

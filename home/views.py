@@ -1,3 +1,4 @@
+import logging
 import traceback
 import io
 import time
@@ -16,20 +17,20 @@ from reportlab.lib.pagesizes import letter
 from .forms import ContactForm
 from reportlab.lib.units import inch
 from .models import Patient, Prescription, Doctor
-from .forms import UserForm, DoctorForm, DoctorProfileUpdateForm, ClinicInfoForm # UPDATED
+from .forms import UserForm, DoctorForm, DoctorProfileUpdateForm, ClinicInfoForm  # UPDATED
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Patient, Prescription, Doctor, Symptom, Medicine, Audio, ContactSubmission
-from .llm_utils import extract_symptoms_from_text, predict_medicines_from_symptoms # LLM imports
+from .llm_utils import extract_symptoms_from_text, predict_medicines_from_symptoms  # LLM imports
 from django.db import transaction
 
 # For drawing uploaded logo in PDF
-from reportlab.lib.utils import ImageReader 
-from django.conf import settings 
-import os 
+from reportlab.lib.utils import ImageReader
+from django.conf import settings
+import os
 
 
 from twilio.rest import Client
@@ -37,6 +38,9 @@ from twilio.rest import Client
 # --- ASSEMBLYAI API CONFIG ---
 ASSEMBLYAI_UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
 ASSEMBLYAI_TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript'
+
+
+logger = logging.getLogger(__name__)
 
 
 # --- NEW VIEW: CLINIC CONFIGURATION (REINFORCED) ---
@@ -49,15 +53,17 @@ def clinic_config_view(request):
     try:
         doctor_profile = request.user.doctor
     except Doctor.DoesNotExist:
-        messages.error(request, "Please complete your main Doctor profile setup before configuring clinic settings.")
+        messages.error(
+            request, "Please complete your main Doctor profile setup before configuring clinic settings.")
         return redirect('edit-profile')
 
-
     if request.method == 'POST':
-        form = ClinicInfoForm(request.POST, request.FILES, instance=doctor_profile)
+        form = ClinicInfoForm(request.POST, request.FILES,
+                              instance=doctor_profile)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Clinic details updated successfully! Your new logo will appear on prescriptions.')
+            messages.success(
+                request, 'Clinic details updated successfully! Your new logo will appear on prescriptions.')
             return redirect('clinic-config')
     else:
         form = ClinicInfoForm(instance=doctor_profile)
@@ -164,43 +170,49 @@ def prescription(request):
         blood_group = request.POST.get('bloodGrp')
         weight = request.POST.get('weight')
         blood_pressure = request.POST.get('bp')
-        address = request.POST.get('address') 
-    
+        address = request.POST.get('address')
+        allergy = request.POST.get('allergy')
+
         confirmed_symptoms_str = request.POST.get('confirmedSymptoms', '')
         # FIX: Corrected variable name from confirmed_symptom_str to confirmed_symptoms_str
-        confirmed_symptom_names = [s.strip() for s in confirmed_symptoms_str.split(',') if s.strip()]
+        confirmed_symptom_names = [
+            s.strip() for s in confirmed_symptoms_str.split(',') if s.strip()]
 
         confirmed_medicines_str = request.POST.get('confirmedMedicines', '')
         # FIX: Corrected variable name from confirmed_medicine_str to confirmed_medicines_str
-        confirmed_medicine_names = [m.strip() for m in confirmed_medicines_str.split(',') if m.strip()]
-
+        confirmed_medicine_names = [
+            m.strip() for m in confirmed_medicines_str.split(',') if m.strip()]
 
         age_val = int(age) if age and age.isdigit() else None
-        weight_val = float(weight) if weight and weight.replace('.', '', 1).isdigit() else None
+        weight_val = float(weight) if weight and weight.replace(
+            '.', '', 1).isdigit() else None
 
-        with transaction.atomic(): 
+        with transaction.atomic():
             # --- 2. CREATE/UPDATE PATIENT & DOCTOR CHECK ---
             patient, _ = Patient.objects.update_or_create(
-                phone=phone, name=patient_name, defaults={'age': age_val, 'email': email, 'gender': gender, 'blood_group': blood_group, 'weight': weight_val, 'address': address}
+                phone=phone, name=patient_name, defaults={
+                    'age': age_val, 'email': email, 'gender': gender, 'blood_group': blood_group, 'weight': weight_val, 'address': address, 'allergy': allergy}
             )
 
             try:
                 doctor = request.user.doctor
             except Doctor.DoesNotExist:
-                doctor = None 
-            
+                doctor = None
+
             # --- Safely Define All Doctor/Clinic Variables (CRITICAL FIX) ---
             if doctor:
-                doctor_full_name = f"MD. {doctor.first_name} {doctor.last_name}"
+                doctor_full_name = f"MD. {
+                    doctor.first_name} {doctor.last_name}"
                 doctor_spec = doctor.specialization or "General Physician"
                 # CRITICAL: If ID is null, use a large integer fallback
-                clinic_id = str(doctor.id) if doctor.id else "123456789" 
+                clinic_id = str(doctor.id) if doctor.id else "123456789"
                 clinic_name = doctor.clinic_name or "MEDICAL CLINIC NAME"
                 clinic_address = doctor.clinic_address or "123, Lorem Ipsum St. | +00 123 456 789 | clinicname@email.com"
-                
+
                 # Check if logo exists and get the full path
                 if doctor.clinic_logo and doctor.clinic_logo.name:
-                    clinic_logo_path = os.path.join(settings.MEDIA_ROOT, doctor.clinic_logo.name)
+                    clinic_logo_path = os.path.join(
+                        settings.MEDIA_ROOT, doctor.clinic_logo.name)
                 else:
                     clinic_logo_path = None
             else:
@@ -212,7 +224,6 @@ def prescription(request):
                 clinic_address = "123, Lorem Ipsum St. | +00 123 456 789 | clinicname@email.com"
                 clinic_logo_path = None
 
-
             new_prescription = Prescription.objects.create(
                 patient=patient, doctor=doctor, blood_pressure=blood_pressure,
                 transcribed_text=transcribed_text, is_verified=True, verified_at=timezone.now()
@@ -221,21 +232,22 @@ def prescription(request):
             # --- 3. SAVE M2M FIELDS (FIXED: This data is now available for PDF) ---
             for name in confirmed_symptom_names:
                 symptom_obj, _ = Symptom.objects.get_or_create(name=name)
-                new_prescription.symptoms.add(symptom_obj) 
-            
+                new_prescription.symptoms.add(symptom_obj)
+
             for name in confirmed_medicine_names:
                 medicine_obj, _ = Medicine.objects.get_or_create(name=name)
                 new_prescription.medicines.add(medicine_obj)
 
-
             # --- 4. SAVE FILES (Audio and Transcript) ---
             if audio_file:
-                new_prescription.audio_recording.save(f'rec_{patient.id}_{new_prescription.id}.webm', audio_file, save=True)
+                new_prescription.audio_recording.save(
+                    f'rec_{patient.id}_{new_prescription.id}.webm', audio_file, save=True)
             if transcribed_text:
-                transcript_content = ContentFile(transcribed_text.encode('utf-8'))
-                new_prescription.transcript_file.save(f'transcript_{patient.id}_{new_prescription.id}.txt', transcript_content, save=True)
+                transcript_content = ContentFile(
+                    transcribed_text.encode('utf-8'))
+                new_prescription.transcript_file.save(f'transcript_{patient.id}_{
+                                                      new_prescription.id}.txt', transcript_content, save=True)
 
-            
             # --- 5. GENERATE PDF (ADVANCED STYLING & DYNAMIC DATA) ---
             buffer = io.BytesIO()
             p = canvas.Canvas(buffer, pagesize=letter)
@@ -246,134 +258,153 @@ def prescription(request):
             RIGHT_MARGIN = width - 0.75 * inch
             X_COL_2_START = width / 2.0 + 0.3 * inch
             X_COL_2_DATA = X_COL_2_START + 0.8 * inch
-            LINE_HEIGHT = 0.25 * inch 
-            SECTION_SPACE = 0.45 * inch 
+            LINE_HEIGHT = 0.25 * inch
+            SECTION_SPACE = 0.45 * inch
 
             # --- TEMPLATE COLORS ---
-            TEAL_DARK = (0.00, 0.40, 0.45) 
-            TEAL_LIGHT = (0.15, 0.75, 0.80) 
-            
+            TEAL_DARK = (0.00, 0.40, 0.45)
+            TEAL_LIGHT = (0.15, 0.75, 0.80)
+
             # Variables doctor_full_name, doctor_spec, clinic_id are now safely defined above.
 
             y_cursor = height - 0.5 * inch
 
-
             # --- A. HEADER GRAPHIC AND DOCTOR INFO ---
-            
+
             # 1. Background Swoop Effect (Simulated)
             p.setFillColorRGB(*TEAL_DARK)
-            p.rect(0, height - 2.5*inch, width, 2.5*inch, fill=1, stroke=0) 
+            p.rect(0, height - 2.5*inch, width, 2.5*inch, fill=1, stroke=0)
             p.setFillColorRGB(*TEAL_LIGHT)
-            p.rect(0, height - 1.8*inch, width, 0.4*inch, fill=1, stroke=0) 
-            
-            
+            p.rect(0, height - 1.8*inch, width, 0.4*inch, fill=1, stroke=0)
+
             # 2. Logo/Cross Symbol (Dynamic Logo Watermark and Header)
             # Watermark (Drawn first to be in background)
             if clinic_logo_path and os.path.exists(clinic_logo_path):
                 try:
                     logo_reader = ImageReader(clinic_logo_path)
                     p.saveState()
-                    p.setFillAlpha(0.1) # Transparency for watermark
+                    p.setFillAlpha(0.1)  # Transparency for watermark
                     p.translate(width/2, height/2)
-                    p.drawImage(logo_reader, -2.5*inch, -2.5*inch, width=5*inch, height=5*inch, mask='auto')
+                    p.drawImage(logo_reader, -2.5*inch, -2.5*inch,
+                                width=5*inch, height=5*inch, mask='auto')
                     p.restoreState()
                 except Exception as e:
                     print(f"Error drawing logo watermark: {e}")
                     # Fallback to large Caduceus
-                    p.setFillColorCMYK(0, 0, 0, 0.05) 
-                    p.setFont("Helvetica-Bold", 350) 
-                    p.drawCentredString(width / 2.0, height / 2.0 - 0.5 * inch, "⚕️") 
+                    p.setFillColorCMYK(0, 0, 0, 0.05)
+                    p.setFont("Helvetica-Bold", 350)
+                    p.drawCentredString(
+                        width / 2.0, height / 2.0 - 0.5 * inch, "⚕️")
             else:
-                 # Default Caduceus watermark
-                 p.setFillColorCMYK(0, 0, 0, 0.05) 
-                 p.setFont("Helvetica-Bold", 350) 
-                 p.drawCentredString(width / 2.0, height / 2.0 - 0.5 * inch, "⚕️") 
-                 
-            p.setFillColorRGB(1, 1, 1) # Reset color for white text on header
+                # Default Caduceus watermark
+                p.setFillColorCMYK(0, 0, 0, 0.05)
+                p.setFont("Helvetica-Bold", 350)
+                p.drawCentredString(width / 2.0, height /
+                                    2.0 - 0.5 * inch, "⚕️")
+
+            p.setFillColorRGB(1, 1, 1)  # Reset color for white text on header
             p.setFont("Helvetica-Bold", 14)
 
             # Draw Logo in Header (Small Icon)
             logo_offset = 0.5 * inch
             if clinic_logo_path and os.path.exists(clinic_logo_path):
                 try:
-                    p.drawImage(ImageReader(clinic_logo_path), LEFT_MARGIN, height - 1.2 * inch, width=0.4 * inch, height=0.4 * inch)
+                    p.drawImage(ImageReader(clinic_logo_path), LEFT_MARGIN,
+                                height - 1.2 * inch, width=0.4 * inch, height=0.4 * inch)
                 except Exception:
                     pass
             else:
                 # Default Cross Icon
-                p.rect(LEFT_MARGIN, height - 1.2 * inch, 0.15 * inch, 0.4 * inch, fill=1, stroke=0)
-                p.rect(LEFT_MARGIN - 0.12 * inch, height - 1.0 * inch, 0.39 * inch, 0.08 * inch, fill=1, stroke=0)
-
+                p.rect(LEFT_MARGIN, height - 1.2 * inch, 0.15 *
+                       inch, 0.4 * inch, fill=1, stroke=0)
+                p.rect(LEFT_MARGIN - 0.12 * inch, height - 1.0 * inch,
+                       0.39 * inch, 0.08 * inch, fill=1, stroke=0)
 
             y_cursor = height - 0.8 * inch
-            p.drawString(LEFT_MARGIN + logo_offset, y_cursor, doctor_full_name) 
+            p.drawString(LEFT_MARGIN + logo_offset, y_cursor, doctor_full_name)
             y_cursor -= 0.2 * inch
-            
+
             p.setFont("Helvetica", 10)
             p.drawString(LEFT_MARGIN + logo_offset, y_cursor, doctor_spec)
-            p.drawString(LEFT_MARGIN + logo_offset, y_cursor - 0.15 * inch, f"ID No: {clinic_id}")
-            
+            p.drawString(LEFT_MARGIN + logo_offset, y_cursor -
+                         0.15 * inch, f"ID No: {clinic_id}")
+
             # Reset cursor for content below the header block
-            y_cursor = height - 3.0 * inch 
+            y_cursor = height - 3.0 * inch
 
             # --- B/C/D/E. PATIENT DETAILS, DIAGNOSIS, MEDICATIONS (Detailed Drawing Logic) ---
-            
+
             # --- Doctor/Prescription Metadata (FIX: Consistent placement) ---
-            Y_DOCTOR_START = height - 1.0 * inch 
+            Y_DOCTOR_START = height - 1.0 * inch
             p.setFillColorRGB(1, 1, 1)
             p.setFont("Helvetica-Bold", 12)
             # Removed Rx No: and put only Prescription ID
-            p.drawString(RIGHT_MARGIN - 2.5 * inch, Y_DOCTOR_START, f"Prescription ID: {new_prescription.id}") 
+            p.drawString(RIGHT_MARGIN - 2.5 * inch, Y_DOCTOR_START,
+                         f"Prescription ID: {new_prescription.id}")
             p.setFont("Helvetica", 10)
-            p.drawString(RIGHT_MARGIN - 2.5 * inch, Y_DOCTOR_START - 0.2 * inch, f"Date: {new_prescription.date_created.strftime('%Y-%m-%d')}")
-            
-            p.setFillColorRGB(0.1, 0.1, 0.1) # Reset for content
-            p.setStrokeColorRGB(0.0, 0.5, 0.5) 
+            p.drawString(RIGHT_MARGIN - 2.5 * inch, Y_DOCTOR_START - 0.2 * inch,
+                         f"Date: {new_prescription.date_created.strftime('%Y-%m-%d')}")
+
+            p.setFillColorRGB(0.1, 0.1, 0.1)  # Reset for content
+            p.setStrokeColorRGB(0.0, 0.5, 0.5)
             p.line(LEFT_MARGIN, y_cursor, RIGHT_MARGIN, y_cursor)
             y_cursor -= 0.3 * inch
 
             # --- C. PATIENT INFORMATION & VITALS (RE-INSERTED MISSING BLOCK FOR COMPLETENESS) ---
-            p.setFillColorRGB(0.0, 0.5, 0.5) 
+            p.setFillColorRGB(0.0, 0.5, 0.5)
             p.setFont("Helvetica-Bold", 11)
             p.drawString(LEFT_MARGIN, y_cursor, "Patient Details & Vitals:")
-            y_cursor -= LINE_HEIGHT * 0.8 
+            y_cursor -= LINE_HEIGHT * 0.8
 
             p.setFont("Helvetica", 9)
-            p.setFillColorRGB(0.2, 0.2, 0.2) 
+            p.setFillColorRGB(0.2, 0.2, 0.2)
             Y_START_DETAILS = y_cursor
 
-            # Name / Age
+            # Name / Age and allegy
             p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Name:")
-            p.drawString(LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS, patient.name)
+            p.drawString(LEFT_MARGIN + 1.2 * inch,
+                         Y_START_DETAILS, patient.name)
             p.drawString(X_COL_2_START, Y_START_DETAILS, "Age:")
-            p.drawString(X_COL_2_DATA, Y_START_DETAILS, f"{patient.age or 'N/A'}")
+            p.drawString(X_COL_2_DATA, Y_START_DETAILS,
+                         f"{patient.age or 'N/A'}")
+            p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Allergy:")
+            p.drawString(X_COL_2_DATA, Y_START_DETAILS,
+                         f"{patient.allergy or 'N/A'}")
             Y_START_DETAILS -= LINE_HEIGHT
 
             # Phone / Gender
             p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Phone:")
-            p.drawString(LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS, patient.phone or 'N/A')
+            p.drawString(LEFT_MARGIN + 1.2 * inch,
+                         Y_START_DETAILS, patient.phone or 'N/A')
             p.drawString(X_COL_2_START, Y_START_DETAILS, "Gender:")
-            p.drawString(X_COL_2_DATA, Y_START_DETAILS, patient.gender or 'N/A')
+            p.drawString(X_COL_2_DATA, Y_START_DETAILS,
+                         patient.gender or 'N/A')
             Y_START_DETAILS -= LINE_HEIGHT
 
             # Email / Weight
             p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Email:")
-            p.drawString(LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS, patient.email or 'N/A')
+            p.drawString(LEFT_MARGIN + 1.2 * inch,
+                         Y_START_DETAILS, patient.email or 'N/A')
             p.drawString(X_COL_2_START, Y_START_DETAILS, "Weight:")
-            p.drawString(X_COL_2_DATA, Y_START_DETAILS, f"{patient.weight or 'N/A'} kg")
+            p.drawString(X_COL_2_DATA, Y_START_DETAILS,
+                         f"{patient.weight or 'N/A'} kg")
             Y_START_DETAILS -= LINE_HEIGHT
 
             # Blood Grp / BP
-            p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Blood Grp:")
-            p.drawString(LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS, patient.blood_group or 'N/A')
+            p.drawString(LEFT_MARGIN + 0.1 * inch,
+                         Y_START_DETAILS, "Blood Grp:")
+            p.drawString(LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS,
+                         patient.blood_group or 'N/A')
             p.drawString(X_COL_2_START, Y_START_DETAILS, "BP:")
-            p.drawString(X_COL_2_DATA, Y_START_DETAILS, new_prescription.blood_pressure or 'N/A')
+            p.drawString(X_COL_2_DATA, Y_START_DETAILS,
+                         new_prescription.blood_pressure or 'N/A')
             Y_START_DETAILS -= LINE_HEIGHT
 
             # --- ADDRESS ---
             p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Address:")
             address_text = patient.address or "N/A"
-            address_text_object = p.beginText(LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS)
+            address_text_object = p.beginText(
+                LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS)
             address_text_object.setFont("Helvetica", 9)
             address_text_object.setLeading(10)
             MAX_ADDRESS_WRAP_WIDTH = RIGHT_MARGIN - (LEFT_MARGIN + 1.2 * inch)
@@ -389,103 +420,109 @@ def prescription(request):
             if current_line:
                 address_text_object.textLine(current_line.strip())
             p.drawText(address_text_object)
-            y_cursor = Y_START_DETAILS - (LINE_HEIGHT * 2.0) 
+            y_cursor = Y_START_DETAILS - (LINE_HEIGHT * 2.0)
             p.line(LEFT_MARGIN, y_cursor, RIGHT_MARGIN, y_cursor)
             y_cursor -= SECTION_SPACE
             # --- END C. PATIENT INFO ---
-
 
             # --- D. DIAGNOSIS (Symptoms) ---
             p.setFillColorRGB(0.1, 0.1, 0.1)
             p.setFont("Helvetica-Bold", 12)
             # Keep Diagnosis section as requested
-            p.drawString(LEFT_MARGIN, y_cursor, "A. Diagnosis / Confirmed Symptoms:") 
-            y_cursor -= LINE_HEIGHT 
+            p.drawString(LEFT_MARGIN, y_cursor,
+                         "A. Diagnosis / Confirmed Symptoms:")
+            y_cursor -= LINE_HEIGHT
 
             # FIX: Use the local variable confirmed_symptom_names
-            symptom_text = ", ".join(confirmed_symptom_names) if confirmed_symptom_names else "No symptoms recorded by doctor."
+            symptom_text = ", ".join(
+                confirmed_symptom_names) if confirmed_symptom_names else "No symptoms recorded by doctor."
             p.setFont("Helvetica", 10)
             p.drawString(LEFT_MARGIN + 0.2 * inch, y_cursor, symptom_text)
             y_cursor -= LINE_HEIGHT * 2.0
-
 
             # --- E. MEDICATIONS (Med Info Block) ---
             p.setFillColorRGB(0.1, 0.1, 0.1)
             p.setFont("Helvetica-Bold", 12)
             # New Heading for Medicine Info (Removed Rx:)
-            p.drawString(LEFT_MARGIN, y_cursor, "B. Medications / Medicine Info:") 
-            y_cursor -= LINE_HEIGHT 
+            p.drawString(LEFT_MARGIN, y_cursor,
+                         "B. Medications / Medicine Info:")
+            y_cursor -= LINE_HEIGHT
 
             p.setFont("Helvetica", 11)
             if confirmed_medicine_names:
                 for med_name in confirmed_medicine_names:
-                    p.drawString(LEFT_MARGIN + 0.4 * inch, y_cursor, 
-                                f"• {med_name} - [Instructions: TBD, e.g., 500mg, Twice a Day]") 
+                    p.drawString(LEFT_MARGIN + 0.4 * inch, y_cursor,
+                                 f"• {med_name} - [Instructions: TBD, e.g., 500mg, Twice a Day]")
                     y_cursor -= LINE_HEIGHT * 1.5
             else:
-                p.drawString(LEFT_MARGIN + 0.4 * inch, y_cursor, "No medications prescribed.")
+                p.drawString(LEFT_MARGIN + 0.4 * inch, y_cursor,
+                             "No medications prescribed.")
                 y_cursor -= LINE_HEIGHT * 1.5
-                
+
             y_cursor -= LINE_HEIGHT * 2.0
-            
+
             # --- F. CONSULTATION NOTES ---
-            y_cursor -= SECTION_SPACE * 0.8 
+            y_cursor -= SECTION_SPACE * 0.8
             p.setStrokeColorRGB(0.8, 0.8, 0.8)
             p.line(LEFT_MARGIN, y_cursor, RIGHT_MARGIN, y_cursor)
             y_cursor -= 0.3 * inch
 
             p.setFillColorRGB(0.1, 0.1, 0.1)
             p.setFont("Helvetica-Bold", 11)
-            p.drawString(LEFT_MARGIN, y_cursor, "C. Consultation Notes (Transcription):")
+            p.drawString(LEFT_MARGIN, y_cursor,
+                         "C. Consultation Notes (Transcription):")
             y_cursor -= 0.1 * inch
 
-            # Add transcribed text 
+            # Add transcribed text
             if transcribed_text:
                 text_object = p.beginText(LEFT_MARGIN + 0.1 * inch, y_cursor)
                 text_object.setFont("Helvetica", 9)
                 text_object.setLeading(10)
-                
+
                 # Simple line break insertion for ReportLab
                 lines = transcribed_text.split('\n')
                 for line in lines:
                     text_object.textLine(line)
-                
+
                 p.drawText(text_object)
                 y_cursor -= LINE_HEIGHT * (len(lines) + 1)
             else:
                 p.setFont("Helvetica", 9)
-                p.drawString(LEFT_MARGIN + 0.1 * inch, y_cursor, "No transcription available.")
+                p.drawString(LEFT_MARGIN + 0.1 * inch, y_cursor,
+                             "No transcription available.")
                 y_cursor -= LINE_HEIGHT
-            
+
             y_cursor -= SECTION_SPACE * 1.5
 
             # --- G. FOOTER AND SIGNATURE ---
-            
-            p.setStrokeColorRGB(0.5, 0.5, 0.5) 
-            p.line(RIGHT_MARGIN - 2.5 * inch, 1.5 * inch, RIGHT_MARGIN - 0.5 * inch, 1.5 * inch) 
+
+            p.setStrokeColorRGB(0.5, 0.5, 0.5)
+            p.line(RIGHT_MARGIN - 2.5 * inch, 1.5 * inch,
+                   RIGHT_MARGIN - 0.5 * inch, 1.5 * inch)
 
             p.setFillColorRGB(0.2, 0.2, 0.2)
             p.setFont("Helvetica", 9)
             p.drawRightString(RIGHT_MARGIN, 1.3 * inch, "Doctor's Signature")
-            
+
             # FOOTER BAR (Dynamic Clinic Info)
             p.setFillColorRGB(*TEAL_DARK)
-            p.rect(0, 0, width, 1.2 * inch, fill=1, stroke=0) 
-            
-            p.setFillColorRGB(1, 1, 1) # White text
+            p.rect(0, 0, width, 1.2 * inch, fill=1, stroke=0)
+
+            p.setFillColorRGB(1, 1, 1)  # White text
             p.setFont("Helvetica-Bold", 10)
-            p.drawCentredString(width / 2.0, 1.0 * inch, clinic_name) 
+            p.drawCentredString(width / 2.0, 1.0 * inch, clinic_name)
 
             p.setFont("Helvetica", 8)
             # Split address string by the pipe '|' delimiter (based on ClinicInfoForm)
-            address_parts = [part.strip() for part in clinic_address.split('|')]
-            
+            address_parts = [part.strip()
+                             for part in clinic_address.split('|')]
+
             if len(address_parts) >= 3:
-                 p.drawString(LEFT_MARGIN, 0.7 * inch, address_parts[0]) 
-                 p.drawCentredString(width / 2.0, 0.7 * inch, address_parts[1]) 
-                 p.drawRightString(RIGHT_MARGIN, 0.7 * inch, address_parts[2]) 
+                p.drawString(LEFT_MARGIN, 0.7 * inch, address_parts[0])
+                p.drawCentredString(width / 2.0, 0.7 * inch, address_parts[1])
+                p.drawRightString(RIGHT_MARGIN, 0.7 * inch, address_parts[2])
             else:
-                 p.drawCentredString(width / 2.0, 0.7 * inch, clinic_address) 
+                p.drawCentredString(width / 2.0, 0.7 * inch, clinic_address)
 
             # Finalize the PDF
             p.showPage()
@@ -493,15 +530,23 @@ def prescription(request):
             pdf_data = buffer.getvalue()
             buffer.close()
 
-
             # --- 6. SAVE PDF TO THE MODEL AND RETURN JSON ---
-            filename = f'prescription_{patient.id}_{new_prescription.id}.pdf'
-            new_prescription.prescription_file.save(filename, ContentFile(pdf_data), save=True)
+            # filename = f'prescription_{patient.id}_{new_prescription.id}.pdf'
+            # new_prescription.prescription_file.save(
+            #     filename, ContentFile(pdf_data), save=True)
+
+            folder_name = f"{patient.name}_{patient.phone}".replace(" ", "_")
+            filename = f"{
+                folder_name}/prescription_{patient.id}_{new_prescription.id}.pdf"
+
+            # Save PDF file into that folder
+            new_prescription.prescription_file.save(
+                filename, ContentFile(pdf_data), save=True)
 
             return JsonResponse({
                 'status': 'success',
                 'message': 'Prescription verified and saved!',
-                'prescription_id': new_prescription.id 
+                'prescription_id': new_prescription.id
             })
 
     return render(request, "prescription.html", {})
@@ -783,16 +828,18 @@ def analyze_prescription_view(request):
             data = json.loads(request.body.decode('utf-8'))
             confirmed_symptom_names = data.get('confirmed_symptoms', [])
             patient_info = data.get('patient_info', {})
-            
+
             if not confirmed_symptom_names:
                 return JsonResponse({'status': 'error', 'message': 'No symptoms provided for medicine prediction.'}, status=400)
-            
+
             # 🔨 Prepare data for LLM
-            symptoms_data_for_llm = {"symptoms": [{"name": s} for s in confirmed_symptom_names]}
-            
+            symptoms_data_for_llm = {"symptoms": [
+                {"name": s} for s in confirmed_symptom_names]}
+
             #  Gemini Call for Medicine Prediction
-            med_suggestions = predict_medicines_from_symptoms(symptoms_data_for_llm, patient_info)
-            
+            med_suggestions = predict_medicines_from_symptoms(
+                symptoms_data_for_llm, patient_info)
+
             return JsonResponse({'status': 'success', 'suggestions': med_suggestions})
 
         except json.JSONDecodeError:
@@ -800,7 +847,7 @@ def analyze_prescription_view(request):
         except Exception as e:
             traceback.print_exc()
             return JsonResponse({'status': 'error', 'message': f'Medicine Prediction Error: {str(e)}'}, status=500)
-            
+
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 
@@ -813,19 +860,20 @@ def save_suggestion_view(request):
         try:
             data = json.loads(request.body.decode('utf-8'))
             prescription_id = data.get('prescription_id')
-            confirmed_med_names = data.get('confirmed_meds', []) 
-            
+            confirmed_med_names = data.get('confirmed_meds', [])
+
             if not prescription_id:
                 return JsonResponse({'status': 'error', 'message': 'Missing prescription ID.'}, status=400)
-            
+
             prescription = get_object_or_404(Prescription, id=prescription_id)
-            
+
             for name in confirmed_med_names:
                 clean_name = name.strip().capitalize()
                 if clean_name:
-                    med_obj, _ = Medicine.objects.get_or_create(name=clean_name)
+                    med_obj, _ = Medicine.objects.get_or_create(
+                        name=clean_name)
                     prescription.medicines.add(med_obj)
-            
+
             return JsonResponse({'status': 'success', 'message': 'Medication suggestions saved successfully.'})
 
         except Prescription.DoesNotExist:
@@ -835,3 +883,56 @@ def save_suggestion_view(request):
             return JsonResponse({'status': 'error', 'message': f'Save Error: {str(e)}'}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+
+def get_previous_medication(request):
+    """
+    Fetch all saved prescription PDFs for a given patient (by name + phone).
+    Returns a list of file URLs or an error message.
+    """
+    try:
+        phone = request.GET.get("phone", "").strip()
+        name = request.GET.get("patientName", "").strip()
+
+        if not phone or not name:
+            return JsonResponse({
+                "status": "error",
+                "message": "Missing patient name or phone number."
+            }, status=400)
+
+        # Folder path: media/prescriptions/<name>_<phone>/
+        folder_name = f"{name}_{phone}".replace(" ", "_")
+        folder_path = os.path.join(
+            settings.MEDIA_ROOT, "prescriptions", folder_name)
+
+        if not os.path.exists(folder_path):
+            return JsonResponse({
+                "status": "not_found",
+                "message": "No previous prescriptions found for this patient."
+            })
+
+        # Collect only .pdf files
+        pdf_files = [
+            f"/media/prescriptions/{folder_name}/{f}"
+            for f in os.listdir(folder_path)
+            if f.lower().endswith(".pdf")
+        ]
+
+        if not pdf_files:
+            return JsonResponse({
+                "status": "not_found",
+                "message": "No prescription files found."
+            })
+
+        return JsonResponse({
+            "status": "success",
+            "message": f"{len(pdf_files)} prescription(s) found.",
+            "files": pdf_files
+        })
+
+    except Exception as e:
+        print("❌ Error in get_previous_medication:", e)
+        return JsonResponse({
+            "status": "error",
+            "message": f"Internal server error: {str(e)}"
+        }, status=500)

@@ -25,9 +25,15 @@ urlpatterns = [
 
     # --- NEW: Clinic Configuration URL ---
     path('clinic-config/', views.clinic_config_view, name='clinic-config'),
-    
+
     # --- Existing (and potentially missing) views: ---
     path('update_medication', views.update_medication, name='update_medication'),
-    path('api/analyze-prescription/', views.analyze_prescription_view, name='analyze-prescription'),
+    path('api/analyze-prescription/', views.analyze_prescription_view,
+         name='analyze-prescription'),
     path('api/save-suggestion/', views.save_suggestion_view, name='save-suggestion'),
+
+    # get previous medications
+    path('get_previous_medication/', views.get_previous_medication,
+         name='get_previous_medication'),
+
 ]
