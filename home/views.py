@@ -367,9 +367,7 @@ def prescription(request):
             p.drawString(X_COL_2_START, Y_START_DETAILS, "Age:")
             p.drawString(X_COL_2_DATA, Y_START_DETAILS,
                          f"{patient.age or 'N/A'}")
-            p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Allergy:")
-            p.drawString(X_COL_2_DATA, Y_START_DETAILS,
-                         f"{patient.allergy or 'N/A'}")
+
             Y_START_DETAILS -= LINE_HEIGHT
 
             # Phone / Gender
@@ -400,6 +398,11 @@ def prescription(request):
                          new_prescription.blood_pressure or 'N/A')
             Y_START_DETAILS -= LINE_HEIGHT
 
+            # 🧾 Allergy
+            p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Allergy:")
+            p.drawString(LEFT_MARGIN + 1.2 * inch, Y_START_DETAILS,
+                         f"{patient.allergy or 'N/A'}")
+            Y_START_DETAILS -= LINE_HEIGHT
             # --- ADDRESS ---
             p.drawString(LEFT_MARGIN + 0.1 * inch, Y_START_DETAILS, "Address:")
             address_text = patient.address or "N/A"
