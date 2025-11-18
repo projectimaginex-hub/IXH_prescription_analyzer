@@ -192,3 +192,102 @@ textarea { resize: vertical; }
 hr { border: 0; height: 1px; background-color: #e5e7eb; margin: 25px 0; }
 
 
+
+.logo-wrapper {
+    position: relative;
+    padding: 12px 24px;
+    border-radius: 20px;
+
+    
+
+    /* Triple shadow system */
+    box-shadow:
+        0 4px 14px rgba(255, 255, 255, 0.9),
+        0 0 35px rgba(218, 231, 252, 0.9),
+        inset 0 0 18px rgba(255, 255, 255, 0.28);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    transition: all 0.45s cubic-bezier(.21,.98,.6,1);
+}
+
+/* ENERGETIC NEON RING */
+.logo-wrapper::before {
+    content: "";
+    position: absolute;
+    inset: -14px;
+    border-radius: 28px;
+    z-index: -1;
+
+    background: conic-gradient(
+        from 45deg,
+        rgba(0,180,255,0.35),
+        rgba(80,120,255,0.42),
+        rgba(0,220,255,0.32),
+        rgba(170, 220, 242, 0.35)
+    );
+
+    filter: blur(28px);
+    opacity: 0.88;
+    animation: rotateAura 9s linear infinite;
+}
+
+/* OUTER FLOATING NEBULA GLOW */
+.logo-wrapper::after {
+    content: "";
+    position: absolute;
+    inset: -12px;
+    border-radius: 35px;
+    z-index: -2;
+
+    background: radial-gradient(
+        circle,
+        rgba(0,102,255,0.25),
+        rgba(0,214,255,0.18),
+        transparent 70%
+    );
+    filter: blur(40px);
+    opacity: 0.5;
+}
+
+/* Logo image enhancement */
+.ixh-logo {
+    height: 55px;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35))
+            drop-shadow(0 0 12px rgba(196, 196, 196, 0.5));
+    transition: transform .35s cubic-bezier(.32,1.4,.45,1);
+}
+
+/* HOVER: LIFT + AURA EXPLOSION */
+.logo-wrapper:hover {
+    transform: translateY(-6px) scale(1.06);
+    box-shadow:
+        0 10px 35px rgba(0, 0, 0, 0.25),
+        0 0 60px rgba(229, 239, 255, 0.7),
+        inset 0 0 22px rgba(255,255,255,0.35);
+}
+
+.logo-wrapper:hover .ixh-logo {
+    transform: scale(1.13);
+}
+
+/* SMOOTH ROTATING AURA RING */
+@keyframes rotateAura {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* HEARTBEAT MEDICAL PULSE */
+@keyframes medicalPulseX {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.logo-wrapper {
+    animation: medicalPulseX 5s ease-in-out infinite;
+}

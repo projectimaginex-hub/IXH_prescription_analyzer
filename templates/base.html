@@ -1,33 +1,5 @@
-{% comment %} {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>{% block title %}Doctor App{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'css/base.css' %}">
-</head>
-<body>
-  <div class="sidebar">
-    <h2>Dr. ABC DEF</h2>
-    <a href="{% url 'home' %}" class="{% if request.path == '/' %}active{% endif %}">Home</a>
-    <a href="{% url 'prescription' %}" class="{% if request.path == '/prescription' %}active{% endif %}">Prescriptions</a>
-    <a href="#" class="{% if request.path == '/history/' %}active{% endif %}">History</a>
-    <a href="#" class="{% if request.path == '/profile/' %}active{% endif %}">Profile</a>
-    <a href="#" class="{% if request.path == '/help/' %}active{% endif %}">Help</a>
-    <a href="#" class="{% if request.path == '/contact/' %}active{% endif %}">Contact</a>
-  </div>
-
-  <div class="main">
-    <div class="top-right">
-      <strong>I - X - H</strong>
-    </div>
-    {% block content %}{% endblock %}
-  </div>
-
-  <script src="{% static 'js/script.js' %}"></script>
-</body>
-</html> {% endcomment %}
 {% load static %}
+{% get_media_prefix as MEDIA_URL %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -35,35 +7,41 @@
   <title>{% block title %}Doctor App{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
 </head>
+
 <body>
+
   <div class="sidebar">
-    
-    <!-- THIS SECTION IS NOW DYNAMIC -->
+
     {% if user.is_authenticated and doctor_profile %}
       <h2>Dr. {{ doctor_profile.first_name }} {{ doctor_profile.last_name }}</h2>
     {% else %}
       <h2>Doctor App</h2>
     {% endif %}
-    <!-- END OF DYNAMIC SECTION -->
 
     <a href="{% url 'home' %}" class="{% if request.path == '/' %}active{% endif %}">Home</a>
     <a href="{% url 'prescription' %}" class="{% if 'prescription' in request.path %}active{% endif %}">Prescriptions</a>
     <a href="{% url 'history' %}" class="{% if 'history' in request.path %}active{% endif %}">History</a>
-     <!-- NEW: Clinic Config Link -->
-    <a href="{% url 'clinic-config' %}" class="{% if 'clinic-config' in request.path %}active{% endif %}" >Clinic Setup</a>
-    
+    <a href="{% url 'clinic-config' %}" class="{% if 'clinic-config' in request.path %}active{% endif %}">Clinic Setup</a>
     <a href="{% url 'profile' %}" class="{% if 'profile' in request.path %}active{% endif %}">Profile</a>
     <a href="{% url 'help' %}" class="{% if 'help' in request.path %}active{% endif %}">Help</a>
     <a href="{% url 'contact' %}" class="{% if 'contact' in request.path %}active{% endif %}">Contact</a>
+
   </div>
 
   <div class="main-content">
+
     <div class="top-bar">
-      <strong>I - X - H</strong>
+      <div class="logo-wrapper">
+        <img src="{{ MEDIA_URL }}ixh_logo/ixh_logo.png" alt="IXH Logo" class="ixh-logo">
     </div>
+     
+    </div>
+
     {% block content %}{% endblock %}
+
   </div>
 
   <script src="{% static 'js/script.js' %}"></script>
+
 </body>
 </html>
