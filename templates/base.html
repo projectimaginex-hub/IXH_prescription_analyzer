@@ -6,12 +6,58 @@
   <meta charset="UTF-8">
   <title>{% block title %}Doctor App{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/override.css' %}">
+
+  <style>
+      /* 1. Reset the wrapper (remove neon rings, shadows, and animations) */
+      .logo-wrapper {
+          background: transparent !important;
+          box-shadow: none !important;
+          animation: none !important; /* Stops the heartbeat/rotation */
+          padding: 0 !important;
+          border-radius: 0 !important;
+          
+          /* 2. Position: Pin it to the Top-Right corner of the main content */
+          position: absolute !important;
+          top: 20px;
+          right: 30px;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+
+      /* 3. Hide the pseudo-elements that created the glow effects */
+      .logo-wrapper::before,
+      .logo-wrapper::after {
+          display: none !important;
+          content: none !important;
+      }
+
+      /* 4. Force the Image Size to be Small (Icon) */
+      .ixh-logo {
+          height: 45px !important;  /* Set your desired icon size here */
+          width: auto !important;
+          max-width: none !important;
+          filter: none !important;  /* Remove drop shadows */
+          transform: none !important; /* Remove scaling effects */
+          cursor: pointer;
+      }
+
+      /* 5. Optional: Simple hover effect */
+      .ixh-logo:hover {
+          opacity: 0.8;
+      }
+
+      /* 6. Ensure Top Bar allows absolute positioning */
+      .top-bar {
+          position: relative;
+          min-height: 60px; /* Ensure space for the header */
+      }
+  </style>
 </head>
-
 <body>
-
   <div class="sidebar">
-
     {% if user.is_authenticated and doctor_profile %}
       <h2>Dr. {{ doctor_profile.first_name }} {{ doctor_profile.last_name }}</h2>
     {% else %}
@@ -25,23 +71,17 @@
     <a href="{% url 'profile' %}" class="{% if 'profile' in request.path %}active{% endif %}">Profile</a>
     <a href="{% url 'help' %}" class="{% if 'help' in request.path %}active{% endif %}">Help</a>
     <a href="{% url 'contact' %}" class="{% if 'contact' in request.path %}active{% endif %}">Contact</a>
-
   </div>
 
   <div class="main-content">
-
     <div class="top-bar">
       <div class="logo-wrapper">
         <img src="{{ MEDIA_URL }}ixh_logo/ixh_logo.png" alt="IXH Logo" class="ixh-logo">
+      </div>
     </div>
-     
-    </div>
-
     {% block content %}{% endblock %}
-
   </div>
 
   <script src="{% static 'js/script.js' %}"></script>
-
 </body>
 </html>

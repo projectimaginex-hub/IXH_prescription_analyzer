@@ -213,66 +213,59 @@ hr { border: 0; height: 1px; background-color: #e5e7eb; margin: 25px 0; }
     transition: all 0.45s cubic-bezier(.21,.98,.6,1);
 }
 
-/* ENERGETIC NEON RING */
-.logo-wrapper::before {
-    content: "";
-    position: absolute;
-    inset: -14px;
-    border-radius: 28px;
-    z-index: -1;
+/* === REPLACEMENT LOGO STYLES (Clean Icon Style) === */
 
-    background: conic-gradient(
-        from 45deg,
-        rgba(0,180,255,0.35),
-        rgba(80,120,255,0.42),
-        rgba(0,220,255,0.32),
-        rgba(170, 220, 242, 0.35)
-    );
-
-    filter: blur(28px);
-    opacity: 0.88;
-    animation: rotateAura 9s linear infinite;
+/* 1. Reset the wrapper to be simple and positioned */
+.logo-wrapper {
+    /* Remove the 'Picture Frame' background and shadows */
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 0;
+    animation: none; /* Stops the heartbeat pulse */
+    
+    /* Position logic */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Ensure no extra spacing interferes */
+    line-height: 0;
 }
 
-/* OUTER FLOATING NEBULA GLOW */
+/* 2. Hide the Neon Rings and Glow Effects */
+.logo-wrapper::before,
 .logo-wrapper::after {
-    content: "";
-    position: absolute;
-    inset: -12px;
-    border-radius: 35px;
-    z-index: -2;
-
-    background: radial-gradient(
-        circle,
-        rgba(0,102,255,0.25),
-        rgba(0,214,255,0.18),
-        transparent 70%
-    );
-    filter: blur(40px);
-    opacity: 0.5;
+    display: none !important;
 }
 
-/* Logo image enhancement */
+/* 3. Force the Image to be Small (Icon Size) */
 .ixh-logo {
-    height: 55px;
-    width: auto;
-    object-fit: contain;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35))
-            drop-shadow(0 0 12px rgba(196, 196, 196, 0.5));
-    transition: transform .35s cubic-bezier(.32,1.4,.45,1);
+    height: 40px !important; /* Forces small icon height */
+    width: auto !important;  /* Maintains aspect ratio */
+    max-width: 100%;
+    
+    /* Remove the heavy drop shadow, keep it clean */
+    filter: none; 
+    
+    /* Simple interactive hover effect */
+    transition: transform 0.2s ease;
+    cursor: pointer;
 }
 
-/* HOVER: LIFT + AURA EXPLOSION */
-.logo-wrapper:hover {
-    transform: translateY(-6px) scale(1.06);
-    box-shadow:
-        0 10px 35px rgba(0, 0, 0, 0.25),
-        0 0 60px rgba(229, 239, 255, 0.7),
-        inset 0 0 22px rgba(255,255,255,0.35);
-}
-
+/* Optional: Slight zoom when you hover over the icon */
 .logo-wrapper:hover .ixh-logo {
-    transform: scale(1.13);
+    transform: scale(1.1);
+}
+
+/* 4. Ensure the Top Bar aligns it to the right corner */
+.top-bar {
+    display: flex;
+    justify-content: flex-end; /* Pushes icon to the far right */
+    align-items: center;
+    padding: 10px 20px; /* Adjust spacing from the edge */
+    height: 60px; /* Fixed height for the header bar */
 }
 
 /* SMOOTH ROTATING AURA RING */

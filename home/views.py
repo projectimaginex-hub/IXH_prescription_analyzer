@@ -499,15 +499,38 @@ def prescription(request):
 
             # --- G. FOOTER AND SIGNATURE ---
 
-            p.setStrokeColorRGB(0.5, 0.5, 0.5)
-            p.line(RIGHT_MARGIN - 2.5 * inch, 1.5 * inch,
-                   RIGHT_MARGIN - 0.5 * inch, 1.5 * inch)
+            # --- G. FOOTER AND SIGNATURE ---
 
+            # 1. Draw the Signature Line
+            p.setStrokeColorRGB(0.5, 0.5, 0.5)
+            # Line position: x1, y1 to x2, y2
+            SIG_LINE_Y = 1.5 * inch
+            p.line(RIGHT_MARGIN - 2.5 * inch, SIG_LINE_Y, 
+                   RIGHT_MARGIN - 0.5 * inch, SIG_LINE_Y)
+
+            # 2. Logic: Paste the Signature Image if available
+            if doctor and doctor.signature:
+                try:
+                    sig_path = doctor.signature.path
+                    if os.path.exists(sig_path):
+                        # Calculate position to put the image ON TOP of the line
+                        # x centered roughly over the line, y just above the line
+                        sig_width = 1.5 * inch
+                        sig_height = 0.5 * inch
+                        sig_x = RIGHT_MARGIN - 2.25 * inch # Start slightly left of the line start
+                        sig_y = SIG_LINE_Y + 0.05 * inch   # Just above the line
+                        
+                        p.drawImage(ImageReader(sig_path), sig_x, sig_y, 
+                                    width=sig_width, height=sig_height, mask='auto')
+                except Exception as e:
+                    print(f"Error drawing signature: {e}")
+
+            # 3. Label below the line
             p.setFillColorRGB(0.2, 0.2, 0.2)
             p.setFont("Helvetica", 9)
             p.drawRightString(RIGHT_MARGIN, 1.3 * inch, "Doctor's Signature")
 
-            # FOOTER BAR (Dynamic Clinic Info)
+            # --- FOOTER BAR (Dynamic Clinic Info) ---
             p.setFillColorRGB(*TEAL_DARK)
             p.rect(0, 0, width, 1.2 * inch, fill=1, stroke=0)
 
@@ -516,9 +539,8 @@ def prescription(request):
             p.drawCentredString(width / 2.0, 1.0 * inch, clinic_name)
 
             p.setFont("Helvetica", 8)
-            # Split address string by the pipe '|' delimiter (based on ClinicInfoForm)
-            address_parts = [part.strip()
-                             for part in clinic_address.split('|')]
+            # Split address string by the pipe '|' delimiter
+            address_parts = [part.strip() for part in clinic_address.split('|')]
 
             if len(address_parts) >= 3:
                 p.drawString(LEFT_MARGIN, 0.7 * inch, address_parts[0])
@@ -595,14 +617,23 @@ def home(request): return render(request, "home.html")
 def history(request):
     """
     Handles displaying the history page with search and pagination.
+    FILTERED: Only shows prescriptions created by the currently logged-in doctor.
     """
+    # 1. Security Check: Ensure the user has a Doctor profile
+    try:
+        current_doctor = request.user.doctor
+    except Doctor.DoesNotExist:
+        messages.error(request, "Access Restricted: You must be a registered doctor to view history.")
+        return redirect('profile')
+
     # Get the search query and date range from the GET request
     query = request.GET.get('q', '')
     start_date = request.GET.get('startDate')
     end_date = request.GET.get('endDate')
 
-    # Start with all prescriptions, ordered by the most recent
-    all_prescriptions = Prescription.objects.all().order_by('-date_created')
+    # 2. FILTER LOGIC: Get only THIS doctor's prescriptions
+    # We use .filter(doctor=current_doctor) instead of .all()
+    all_prescriptions = Prescription.objects.filter(doctor=current_doctor).order_by('-date_created')
 
     # If a search query is provided, filter the prescriptions by patient name
     if query:
@@ -627,7 +658,6 @@ def history(request):
         'end_date': end_date,
     }
     return render(request, 'history.html', context)
-
 
 def help(request):
     """

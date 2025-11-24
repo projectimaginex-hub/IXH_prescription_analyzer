@@ -17,14 +17,15 @@ class DoctorForm(forms.ModelForm):
         fields = ['first_name', 'last_name', 'specialization', 'phone',
                   'email', 'experience', 'profile_picture']
 
-
 class DoctorProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = Doctor
-        fields = ['first_name', 'last_name', 'specialization',
-                  'phone', 'email', 'experience', 'profile_picture']
-
-
+        # Added 'signature' to the list so it appears in the form
+        fields = ['first_name', 'last_name', 'specialization', 
+                  'phone', 'email', 'experience', 'profile_picture', 'signature']
+        labels = {
+            'signature': 'Upload Signature (Image of your signature on white paper)'
+        }
 # --- NEW FORM FOR CLINIC SETTINGS ---
 class ClinicInfoForm(forms.ModelForm):
     """
