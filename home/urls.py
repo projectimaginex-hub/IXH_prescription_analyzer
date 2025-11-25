@@ -35,5 +35,6 @@ urlpatterns = [
     # get previous medications
     path('get_previous_medication/', views.get_previous_medication,
          name='get_previous_medication'),
-
+# --- NEW OCR SCANNER ROUTE (Fixes the Error) ---
+    path('scan-prescription/', views.scan_prescription_view, name='scan-prescription'),
 ]

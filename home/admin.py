@@ -1,7 +1,7 @@
 from .models import Patient, Prescription, Medicine, Symptom
 from django.contrib import admin
 
-from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio , ContactSubmission,LLMAudit
+from .models import Doctor, Patient, Medicine, Symptom, Prescription, Audio , ContactSubmission,LLMAudit,MedicalHistory
 
 
 @admin.register(Doctor)
@@ -167,3 +167,19 @@ class LLMAuditAdmin(admin.ModelAdmin):
             'fields': ('prompt', 'response')
         }),
     )
+    
+    
+    # --- NEW OCR HISTORY ADMIN ---
+@admin.register(MedicalHistory)
+class MedicalHistoryAdmin(admin.ModelAdmin):
+    """
+    Admin view for the scanned medical history (OCR data).
+    """
+    list_display = ('patient', 'date_scanned', 'get_summary_snippet')
+    search_fields = ('patient__name', 'summary_text')
+    list_filter = ('date_scanned',)
+    readonly_fields = ('date_scanned', 'extracted_json') # JSON is read-only to prevent format errors
+
+    def get_summary_snippet(self, obj):
+        return obj.summary_text[:100] + "..." if obj.summary_text else "No summary"
+    get_summary_snippet.short_description = 'Extracted Summary'

@@ -19,6 +19,21 @@
   
   <form id="prescriptionForm" class="card form-card" novalidate>
     {% csrf_token %}
+    
+    <div class="ocr-container" style="margin-bottom: 20px;">
+      <div id="drop-area" class="drop-area">
+        <div class="icon-cloud">📄 📷</div>
+        <p style="margin: 10px 0; color: #555;">
+          <strong>Drag & Drop</strong> old prescription here or 
+          <span style="color: #3b82f6; cursor: pointer; text-decoration: underline;">Click to Scan</span>
+        </p>
+        <input type="file" id="fileElem" accept="image/*" capture="environment" style="display:none" onchange="handleFiles(this.files)">
+        
+        <div id="ocr-spinner" style="display:none; color: #3b82f6; font-weight: bold; margin-top: 10px;">
+          🔍 Analyzing document with AI... Please wait...
+        </div>
+      </div>
+    </div>
     <div class="form-grid">
       <div class="form-group">
         <label>Patient Name:</label>
@@ -79,22 +94,17 @@
       </div>
 
       
-        <div class="history-actions form-group">
+      <div class="history-actions form-group">
           <button class="btn btn-secondary" type="button" id="fetchBtn">📜 Fetch History</button>
-        </div>
-    <div id="medicationHistory" class="history-box form-group" style="display:none;">
+      </div>
+      <div id="medicationHistory" class="history-box form-group" style="display:none;">
           <h4>Past Medication History:</h4>
           <pre id="historyContent">No history yet.</pre>
-    </div>
-    <div id="historyContainer" class="p-3 border rounded bg-gray-50 mt-3">
-      <p class="text-gray-500">Previous prescriptions will appear here...</p>
-    </div>
+      </div>
+      <div id="historyContainer" class="p-3 border rounded bg-gray-50 mt-3">
+         <p class="text-gray-500">Previous prescriptions will appear here...</p>
+      </div>
 
-
-     
-
-
-      
     </div>
     <input type="hidden" name="transcriptionText" id="hiddenTranscriptionText">
     <input type="hidden" name="confirmedSymptoms" id="confirmedSymptoms">
@@ -211,6 +221,29 @@
     border-color: #ef4444;
     background-color: #fee2e2;
   }
+
+  /* CSS just for the Scanner Box */
+  .drop-area {
+    border: 2px dashed #3b82f6;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    background-color: #f0f9ff; /* Light Blue */
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .drop-area:hover {
+    background-color: #e0f2fe;
+    border-color: #2563eb;
+    transform: scale(1.01);
+  }
+  .drop-area.highlight {
+    background-color: #dbeafe;
+    border-color: #1e40af;
+  }
+  .icon-cloud {
+    font-size: 30px;
+  }
 </style>
 
 <script>
@@ -306,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bp.addEventListener('input', () => validateField(bp, bpError, isBP));
     address.addEventListener('input', () => validateField(address, addressError, isAddress)); // ✅ Address Listener
 
-    // === SYMPTOM MANAGEMENT FUNCTIONS (remain the same) ===
+    // === SYMPTOM MANAGEMENT FUNCTIONS ===
 
     const renderConfirmedSymptoms = () => {
         symptomsList.innerHTML = '';
@@ -327,7 +360,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const addSymptom = (text) => {
+    // MAKE addSymptom AVAILABLE GLOBALLY FOR OCR
+    window.addSymptom = (text) => {
         const symptomText = text.trim();
         const capitalizedText = symptomText.charAt(0).toUpperCase() + symptomText.slice(1).toLowerCase();
         
@@ -390,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     option.textContent = symptom;
                     option.title = "Click to add to confirmed list";
                     option.addEventListener('click', () => {
-                        addSymptom(symptom);
+                        window.addSymptom(symptom);
                         option.style.display = 'none';
                     });
                     aiSymptomOptions.appendChild(option);
@@ -456,7 +490,8 @@ document.addEventListener('DOMContentLoaded', () => {
             gender: document.querySelector('[name="gender"]').value,
             weight: weight.value,
             bp: bp.value,
-            allergy:allergy.value
+            allergy:allergy.value,
+            name: patientName.value // ADDED: Patient Name for History Lookup
         };
         const confirmedSymptomArray = Array.from(confirmedSymptoms);
 
@@ -577,7 +612,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fetchBtn = document.getElementById('fetchBtn');
   const phoneInput = document.getElementById('phone');
   const patientNameInput = document.getElementById('patientName');
-  const medBox = document.getElementById('previousMedication');
   const historyContainer = document.getElementById("historyContainer");
 
   fetchBtn.addEventListener("click", async () => {
@@ -776,9 +810,118 @@ refreshBtn.addEventListener('click', () => {
     renderConfirmedSymptoms();
     renderConfirmedMedicines();
 
+    // === OCR SCANNER LOGIC ===
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('fileElem');
+    const ocrSpinner = document.getElementById('ocr-spinner');
 
+    // 1. Handle Click to Open File Dialog
+    dropArea.addEventListener('click', () => fileInput.click());
 
+    // 2. Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+      document.body.addEventListener(eventName, preventDefaults, false);
+    });
 
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // 3. Highlight effects
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'), false);
+    });
+
+    // 4. Handle Dropped Files
+    dropArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      handleFiles(files);
+    }
+
+    // 5. Global File Handler (Triggered by Drop or Click)
+    window.handleFiles = function(files) {
+      if (files.length > 0) {
+        uploadScannedImage(files[0]);
+      }
+    }
+
+    async function uploadScannedImage(file) {
+      // Show Spinner
+      ocrSpinner.style.display = 'block';
+      
+      const formData = new FormData();
+      formData.append('doc_image', file);
+      
+      try {
+        const response = await fetch("{% url 'scan-prescription' %}", {
+          method: 'POST',
+          headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+          body: formData
+        });
+
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+          const data = result.data;
+          
+          // --- AUTO-FILL THE FORM ---
+          
+          // 1. Name & Age
+          if (data.patient_name && data.patient_name !== 'null') {
+             document.getElementById('patientName').value = data.patient_name;
+             document.getElementById('patientName').classList.remove('invalid');
+          }
+          if (data.age && data.age !== 'null') {
+             document.getElementById('age').value = data.age;
+          }
+
+          // 2. Add Symptoms
+          if (data.symptoms && Array.isArray(data.symptoms)) {
+            data.symptoms.forEach(sym => {
+                if(typeof window.addSymptom === 'function') {
+                    window.addSymptom(sym); 
+                }
+            });
+          }
+
+          // 3. Add Medicines to History Box
+          const historyBox = document.getElementById('medicationHistory');
+          const historyContent = document.getElementById('historyContent');
+          
+          if (historyBox && historyContent) {
+              historyBox.style.display = 'block';
+              let newHistoryText = "📄 [SCANNED DATA]:\n";
+              
+              if (data.medicines && data.medicines.length > 0) {
+                  newHistoryText += "Found Meds: " + data.medicines.join(', ') + "\n";
+              }
+              if (data.summary) {
+                  newHistoryText += "Summary: " + data.summary;
+              }
+              
+              historyContent.textContent = newHistoryText + "\n-------------------\n" + historyContent.textContent;
+          }
+
+          alert("✅ Scan Complete! Form populated.");
+          
+        } else {
+          alert("❌ Scan Failed: " + result.message);
+        }
+      } catch (error) {
+        console.error('Scan error:', error);
+        alert("❌ Error uploading file.");
+      } finally {
+        ocrSpinner.style.display = 'none';
+      }
+    }
 
 });
 </script>

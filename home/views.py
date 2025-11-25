@@ -35,6 +35,11 @@ import os
 
 from twilio.rest import Client
 
+
+from .llm_utils import extract_symptoms_from_text, predict_medicines_from_symptoms
+# ADD THIS IMPORT 👇
+from .llm_utils import analyze_medical_document_image
+
 # --- ASSEMBLYAI API CONFIG ---
 ASSEMBLYAI_UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
 ASSEMBLYAI_TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript'
@@ -969,3 +974,101 @@ def get_previous_medication(request):
             "status": "error",
             "message": f"Internal server error: {str(e)}"
         }, status=500)
+
+
+
+# home/views.py
+
+@csrf_exempt
+def analyze_prescription_view(request):
+    """
+    Predicts medicines using Gemini.
+    UPDATED: Now includes 'MedicalHistory' from backend memory as a factor.
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            confirmed_symptom_names = data.get('confirmed_symptoms', [])
+            patient_info = data.get('patient_info', {})
+            
+            # --- FIX: Get patient name correctly from the JSON data ---
+            # We do NOT use 'document.getElementById' here.
+            p_name = patient_info.get('name') or data.get('patientName')
+
+            # Construct the input for the LLM
+            symptoms_data_for_llm = {
+                "current_symptoms": [{"name": s} for s in confirmed_symptom_names]
+            }
+
+            # Call LLM (Updated to accept history)
+            # We pass the 'include_history=True' flag so it looks up the DB
+            med_suggestions = predict_medicines_from_symptoms(
+                symptoms_data_for_llm, 
+                patient_info, 
+                include_history=True 
+            )
+
+            return JsonResponse({'status': 'success', 'suggestions': med_suggestions})
+
+        except Exception as e:
+            traceback.print_exc()
+            return JsonResponse({'status': 'error', 'message': f'Prediction Error: {str(e)}'}, status=500)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request.'}, status=405)
+# home/views.py
+
+from .models import MedicalHistory # Import the new model
+
+@csrf_exempt
+@login_required
+def scan_prescription_view(request):
+    """
+    Handles OCR:
+    1. Sends image to Gemini.
+    2. SAVES the result to MedicalHistory (Backend Memory).
+    3. Returns data to Frontend.
+    """
+    if request.method == 'POST':
+        try:
+            uploaded_file = request.FILES.get('doc_image')
+            if not uploaded_file:
+                return JsonResponse({'status': 'error', 'message': 'No file uploaded.'}, status=400)
+
+            # 1. Run AI OCR
+            extracted_data = analyze_medical_document_image(uploaded_file)
+            
+            if "error" in extracted_data:
+                return JsonResponse({'status': 'error', 'message': extracted_data['error']}, status=500)
+
+            # 2. INTELLIGENT LINKING: Try to find the patient in DB
+            patient_obj = None
+            patient_name = extracted_data.get('patient_name')
+            
+            if patient_name and patient_name != 'null':
+                # Simple name match (Case insensitive)
+                # In a real app, you might match by Phone too if available
+                matches = Patient.objects.filter(name__iexact=patient_name)
+                if matches.exists():
+                    patient_obj = matches.first()
+
+            # 3. SAVE TO DATABASE (The "Memory")
+            # We save the medicines and symptoms as a summary string
+            summary = f"Previous Symptoms: {', '.join(extracted_data.get('symptoms', []))}. Previous Meds: {', '.join(extracted_data.get('medicines', []))}."
+            
+            MedicalHistory.objects.create(
+                patient=patient_obj, # Links if found, else Null
+                scan_image=uploaded_file,
+                extracted_json=extracted_data,
+                summary_text=summary
+            )
+
+            # 4. Return to Frontend
+            return JsonResponse({'status': 'success', 'data': extracted_data})
+
+        except Exception as e:
+            traceback.print_exc()
+            return JsonResponse({'status': 'error', 'message': f'Processing Error: {str(e)}'}, status=500)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request.'}, status=405)
+
+

@@ -1,15 +1,12 @@
-from openai import OpenAI
 import os
 import json
 import difflib
 import logging
 from dotenv import load_dotenv
+import PIL.Image  # <--- Essential for OCR
 
 # --- Google Gemini SDK Imports ---
-# from google import genai
 import google.generativeai as genai
-
-
 from google.generativeai import types
 from google.api_core.exceptions import GoogleAPIError as GeminiAPIError
 
@@ -21,38 +18,26 @@ logger = logging.getLogger(__name__)
 
 # --- API KEY CONFIGURATION ---
 load_dotenv()
-# Your Gemini Key is used for medicine prediction
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Your OpenAI Key will be used for symptom prediction later
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-
 # --- LLM Client Initialization ---
-# Initialize clients as None by default
 gemini_client = None
 openai_client = None
 
-# 🧪 Initialize Gemini Client
 if GEMINI_API_KEY:
     try:
         gemini_client = genai.Client(api_key=GEMINI_API_KEY)
         logger.info("Gemini client initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize Gemini client: {e}")
-else:
-    logger.warning(
-        "GEMINI_API_KEY is missing. Medicine prediction will return dummy data.")
 
-# 🧪 Initialize OpenAI Client (Will be None for now due to restriction)
 if OPENAI_API_KEY:
     try:
         openai_client = OpenAI(api_key=OPENAI_API_KEY)
         logger.info("OpenAI client initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize OpenAI client: {e}")
-else:
-    logger.warning(
-        "OPENAI_API_KEY is missing. Symptom prediction will return dummy data.")
 
 
 # --- PROMPT DEFINITIONS ---
@@ -73,56 +58,64 @@ Input:
 Symptoms: {symptoms_json}
 Patient Info: {patient_info}
 
+PATIENT HISTORY (From scanned documents):
+{history_text}
+
 Output only a JSON array of medicine suggestions. The array must contain objects with the fields "name", "composition", and "reason".
 [
   {
     "name": "<medicine name>", 
-    ""composition"": "<e.g., Paracetamol 500mg>", 
+    "composition": "<e.g., Paracetamol 500mg>", 
     "reason": "<why suggested>", 
     "confidence": 0.0-1.0
   }
 ]
 """
 
-# --- UTILITY FUNCTIONS ---
+OCR_PROMPT = """
+You are an expert medical data transcriber. 
+Analyze this image of a medical prescription or report.
+Extract the following details into a strict JSON format:
+{
+  "patient_name": "Name or null",
+  "age": "Age or null",
+  "gender": "Male/Female/Other or null",
+  "symptoms": ["symptom1", "symptom2"],
+  "medicines": ["med1", "med2"],
+  "summary": "A short summary of the document"
+}
+If the text is handwritten and hard to read, do your best to infer based on medical context.
+Return ONLY the JSON.
+"""
 
+# --- UTILITY FUNCTIONS ---
 
 def _extract_json(text: str):
     """Safely extracts a JSON object or array from a string."""
     try:
         return json.loads(text)
     except Exception:
-        # Tries to find and extract the outermost JSON structure ({} or [])
         start_curly = text.find('{')
         start_square = text.find('[')
         end_curly = text.rfind('}')
         end_square = text.rfind(']')
 
         if start_square != -1 and end_square != -1 and (start_curly == -1 or start_square < start_curly):
-            # Treat as JSON array
             return json.loads(text[start_square:end_square+1])
         elif start_curly != -1 and end_curly != -1:
-            # Treat as JSON object
             return json.loads(text[start_curly:end_curly+1])
-
         return {}
 
 
 def call_llm(task_type: str, prompt_text: str):
-    """
-    Unified function to call the appropriate LLM (Gemini or OpenAI/GPT) 
-    and handle dummy data fallback.
-    """
+    """Unified function to call the appropriate LLM."""
     if task_type == 'symptom':
-        # --- GPT-4 for Symptoms ---
         if openai_client:
             try:
-                # Assuming your client is initialized to use GPT-4
                 response = openai_client.chat.completions.create(
-                    model="gpt-4",  # Using GPT-4 as requested
+                    model="gpt-4",
                     messages=[
-                        {"role": "system",
-                            "content": "You extract symptoms as JSON only."},
+                        {"role": "system", "content": "You extract symptoms as JSON only."},
                         {"role": "user", "content": prompt_text},
                     ],
                     temperature=0.0,
@@ -130,14 +123,10 @@ def call_llm(task_type: str, prompt_text: str):
                 )
                 return response.choices[0].message.content
             except OpenAIAPIError as e:
-                logger.error(f"OpenAI API Error (Symptom): {
-                             e}. Returning dummy data.")
-
-        # Dummy Fallback for Symptoms (Required when GPT-4 is restricted)
-        return '{"symptoms": [{"name": "Dummy Cough", "confidence": 0.8}, {"name": "Dummy Fever", "confidence": 0.9}], "summary": "API restricted. Using dummy data."}'
+                logger.error(f"OpenAI API Error: {e}")
+        return '{"symptoms": [], "summary": "API restricted."}'
 
     elif task_type == 'medicine':
-        # --- Gemini for Medicine ---
         if gemini_client:
             try:
                 config = types.GenerateContentConfig(
@@ -155,50 +144,86 @@ def call_llm(task_type: str, prompt_text: str):
                         }
                     }
                 )
-
                 response = gemini_client.models.generate_content(
-                    model='gemini-2.5-flash',  # Using efficient model for structured output
+                    model='gemini-2.0-flash', 
                     contents=prompt_text,
                     config=config,
                 )
                 return response.text
-            except GeminiAPIError as e:
-                logger.error(f"Gemini API Error (Medicine): {
-                             e}. Returning dummy data.")
             except Exception as e:
-                logger.error(f"Gemini processing error: {
-                             e}. Returning dummy data.")
-
-        # Dummy Fallback for Medicines (Required when Gemini key is missing or API fails)
-        return '[{"name": "Dummy Paracetamol", "composition": "500mg (Gemini Test)", "reason": "Placeholder reason for successful call.", "confidence": 0.99}, {"name": "Dummy Antacid", "composition": "250mg", "reason": "Placeholder reason for successful call.", "confidence": 0.7}]'
+                logger.error(f"Gemini processing error: {e}")
+        return '[]'
 
     return '{"error": "Invalid task type"}'
 
 
 def extract_symptoms_from_text(transcribed_text: str):
-    """Calls GPT-4 (or dummy) to extract symptoms."""
+    """Calls GPT-4 to extract symptoms."""
     prompt_text = SYMPTOM_PROMPT.format(transcribed_text=transcribed_text)
     raw = call_llm(task_type='symptom', prompt_text=prompt_text)
     return _extract_json(raw)
 
 
-def predict_medicines_from_symptoms(symptoms_json, patient_info):
-    """Calls Gemini (or dummy) to predict medicines."""
+def predict_medicines_from_symptoms(symptoms_json, patient_info, include_history=False):
+    """Calls Gemini to predict medicines, optionally using history."""
+    
+    # 1. Look up history if requested
+    history_text = "No history found."
+    if include_history:
+        p_name = patient_info.get('name') or patient_info.get('patientName')
+        if p_name:
+            # Avoid circular import by importing inside function
+            from .models import MedicalHistory, Patient
+            patients = Patient.objects.filter(name__iexact=p_name)
+            if patients.exists():
+                p = patients.first()
+                scans = MedicalHistory.objects.filter(patient=p).order_by('-date_scanned')[:3]
+                if scans.exists():
+                    history_list = [s.summary_text for s in scans]
+                    history_text = "; ".join(history_list)
+
+    # 2. Format Prompt
     prompt_text = MEDICINE_PROMPT.format(
         symptoms_json=json.dumps(symptoms_json),
-        patient_info=json.dumps(patient_info)
+        patient_info=json.dumps(patient_info),
+        history_text=history_text
     )
+    
+    # 3. Call LLM
     raw = call_llm(task_type='medicine', prompt_text=prompt_text)
     result = _extract_json(raw)
-
-    # Ensure a list is returned
     return result if isinstance(result, list) else []
 
+
+# --- THE MISSING FUNCTION ---
+def analyze_medical_document_image(image_file):
+    """
+    Accepts an uploaded image file, converts it for Gemini,
+    and returns the extracted JSON data.
+    """
+    if not gemini_client:
+        return {"error": "Gemini API key not configured."}
+
+    try:
+        # 1. Convert Django UploadedFile to PIL Image
+        image = PIL.Image.open(image_file)
+        
+        # 2. Call Gemini (Multimodal)
+        response = gemini_client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[OCR_PROMPT, image]
+        )
+        
+        # 3. Clean and Parse JSON
+        return _extract_json(response.text)
+
+    except Exception as e:
+        logger.error(f"OCR Analysis Failed: {e}")
+        return {"error": str(e), "symptoms": [], "medicines": []}
 
 def match_medicines_to_db(suggested, db_meds):
     """Matches suggested medicine names to existing database entries."""
     matches = []
-    # Assumes 'suggested' is a list of medicine names (strings)
     for name in suggested:
         close = difflib.get_close_matches(name, db_meds, n=1, cutoff=0.6)
         matches.append((name, close[0] if close else None))

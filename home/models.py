@@ -156,3 +156,28 @@ class LLMAudit(models.Model):
 
     def __str__(self):
         return f"Audit for {self.model_name} on Prescription {self.prescription.id}"
+    
+    # home/models.py
+
+# ... existing models ...
+
+class MedicalHistory(models.Model):
+    """
+    Stores data extracted from OCR/Scanned documents.
+    Used as 'Long-term Memory' for the AI.
+    """
+    patient = models.ForeignKey(Patient, on_delete=models.SET_NULL, null=True, blank=True, related_name='medical_history')
+    
+    # Store the actual extracted data (Symptoms + Previous Meds)
+    extracted_json = models.JSONField(default=dict) 
+    
+    # We store the text summary for easier AI prompting
+    summary_text = models.TextField(blank=True, help_text="Summary of previous meds/symptoms")
+    
+    # The original image for reference
+    scan_image = models.ImageField(upload_to='scanned_history/', blank=True, null=True)
+    
+    date_scanned = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"History Scan - {self.date_scanned.strftime('%Y-%m-%d')}"
