@@ -1,3 +1,6 @@
+# from google import genai
+import fitz
+import io
 import os
 import json
 import difflib
@@ -6,7 +9,7 @@ from dotenv import load_dotenv
 import PIL.Image  # <--- Essential for OCR
 
 # --- Google Gemini SDK Imports ---
-import google.generativeai as genai
+from google.genai import Client
 from google.generativeai import types
 from google.api_core.exceptions import GoogleAPIError as GeminiAPIError
 
@@ -27,7 +30,7 @@ openai_client = None
 
 if GEMINI_API_KEY:
     try:
-        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        gemini_client = Client(api_key=GEMINI_API_KEY)
         logger.info("Gemini client initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize Gemini client: {e}")
@@ -90,6 +93,7 @@ Return ONLY the JSON.
 
 # --- UTILITY FUNCTIONS ---
 
+
 def _extract_json(text: str):
     """Safely extracts a JSON object or array from a string."""
     try:
@@ -115,7 +119,8 @@ def call_llm(task_type: str, prompt_text: str):
                 response = openai_client.chat.completions.create(
                     model="gpt-4",
                     messages=[
-                        {"role": "system", "content": "You extract symptoms as JSON only."},
+                        {"role": "system",
+                            "content": "You extract symptoms as JSON only."},
                         {"role": "user", "content": prompt_text},
                     ],
                     temperature=0.0,
@@ -145,7 +150,7 @@ def call_llm(task_type: str, prompt_text: str):
                     }
                 )
                 response = gemini_client.models.generate_content(
-                    model='gemini-2.0-flash', 
+                    model='gemini-2.0-flash',
                     contents=prompt_text,
                     config=config,
                 )
@@ -166,7 +171,7 @@ def extract_symptoms_from_text(transcribed_text: str):
 
 def predict_medicines_from_symptoms(symptoms_json, patient_info, include_history=False):
     """Calls Gemini to predict medicines, optionally using history."""
-    
+
     # 1. Look up history if requested
     history_text = "No history found."
     if include_history:
@@ -177,7 +182,8 @@ def predict_medicines_from_symptoms(symptoms_json, patient_info, include_history
             patients = Patient.objects.filter(name__iexact=p_name)
             if patients.exists():
                 p = patients.first()
-                scans = MedicalHistory.objects.filter(patient=p).order_by('-date_scanned')[:3]
+                scans = MedicalHistory.objects.filter(
+                    patient=p).order_by('-date_scanned')[:3]
                 if scans.exists():
                     history_list = [s.summary_text for s in scans]
                     history_text = "; ".join(history_list)
@@ -188,7 +194,7 @@ def predict_medicines_from_symptoms(symptoms_json, patient_info, include_history
         patient_info=json.dumps(patient_info),
         history_text=history_text
     )
-    
+
     # 3. Call LLM
     raw = call_llm(task_type='medicine', prompt_text=prompt_text)
     result = _extract_json(raw)
@@ -196,30 +202,54 @@ def predict_medicines_from_symptoms(symptoms_json, patient_info, include_history
 
 
 # --- THE MISSING FUNCTION ---
+
+
 def analyze_medical_document_image(image_file):
     """
-    Accepts an uploaded image file, converts it for Gemini,
+    Accepts an uploaded image file, converts it for Gemini, Also accepts pdf conver it to image
     and returns the extracted JSON data.
     """
-    if not gemini_client:
+    if not GEMINI_API_KEY:
         return {"error": "Gemini API key not configured."}
 
     try:
-        # 1. Convert Django UploadedFile to PIL Image
-        image = PIL.Image.open(image_file)
-        
-        # 2. Call Gemini (Multimodal)
+        gemini_client = Client(api_key=GEMINI_API_KEY)
+        file_ext = image_file.name.lower()
+
+        if file_ext.endswith(".pdf"):
+            # Convert PDF to images (each page)
+            pdf_bytes = image_file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+
+            for page in doc:
+                pix = page.get_pixmap(dpi=200)  # Good for OCR
+                img_bytes = pix.tobytes("png")
+                img = PIL.Image.open(io.BytesIO(img_bytes))
+
+            if not img:
+                return {"error": "Unable to extract pages from PDF."}
+
+        else:
+            # Image file (jpg/png)
+            img = PIL.Image.open(image_file)
+
+        # --- 3. Call Gemini Multimodal ---
         response = gemini_client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=[OCR_PROMPT, image]
+            model="gemini-2.0-flash",
+            contents=[img, OCR_PROMPT]
         )
-        
-        # 3. Clean and Parse JSON
+
+        # --- 4. Extract valid JSON ---
         return _extract_json(response.text)
 
     except Exception as e:
         logger.error(f"OCR Analysis Failed: {e}")
-        return {"error": str(e), "symptoms": [], "medicines": []}
+        return {
+            "error": str(e),
+            "symptoms": [],
+            "medicines": []
+        }
+
 
 def match_medicines_to_db(suggested, db_meds):
     """Matches suggested medicine names to existing database entries."""

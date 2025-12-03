@@ -23,7 +23,48 @@
     gap: 16px;
     margin-top: 12px;
   }
-  
+/* --- HISTORY SECTION SAFE-STYLING (PREVENT OVERFLOW) --- */
+
+#historyContainer {
+    background: #f8fafc;              /* very light gray */
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 15px;
+    max-height: 250px;                /* limit height */
+    overflow-y: auto;                 /* scroll inside only */
+    overflow-x: hidden;               /* disable sideways scroll */
+    word-wrap: break-word;            /* prevent breaking layout */
+    white-space: normal;              /* allow wrapping */
+}
+
+/* Past Medication History (the pre tag) */
+#historyContent {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 0.95em;
+    line-height: 1.5;
+    white-space: pre-wrap !important; /* CRITICAL — wrap long text */
+    word-break: break-word;           /* prevent overflow */
+    max-height: 200px;                /* scroll inside pre */
+    overflow-y: auto;
+    color: #374151;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.04);
+}
+
+/* Smooth Scroll */
+#historyContainer::-webkit-scrollbar,
+#historyContent::-webkit-scrollbar {
+    width: 6px;
+}
+
+#historyContainer::-webkit-scrollbar-thumb,
+#historyContent::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+
   /* Each PDF card */
   .pdf-card {
     display: flex;

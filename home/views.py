@@ -1,3 +1,4 @@
+from .models import MedicalHistory  # Import the new model
 import logging
 import traceback
 import io
@@ -510,7 +511,7 @@ def prescription(request):
             p.setStrokeColorRGB(0.5, 0.5, 0.5)
             # Line position: x1, y1 to x2, y2
             SIG_LINE_Y = 1.5 * inch
-            p.line(RIGHT_MARGIN - 2.5 * inch, SIG_LINE_Y, 
+            p.line(RIGHT_MARGIN - 2.5 * inch, SIG_LINE_Y,
                    RIGHT_MARGIN - 0.5 * inch, SIG_LINE_Y)
 
             # 2. Logic: Paste the Signature Image if available
@@ -522,10 +523,10 @@ def prescription(request):
                         # x centered roughly over the line, y just above the line
                         sig_width = 1.5 * inch
                         sig_height = 0.5 * inch
-                        sig_x = RIGHT_MARGIN - 2.25 * inch # Start slightly left of the line start
+                        sig_x = RIGHT_MARGIN - 2.25 * inch  # Start slightly left of the line start
                         sig_y = SIG_LINE_Y + 0.05 * inch   # Just above the line
-                        
-                        p.drawImage(ImageReader(sig_path), sig_x, sig_y, 
+
+                        p.drawImage(ImageReader(sig_path), sig_x, sig_y,
                                     width=sig_width, height=sig_height, mask='auto')
                 except Exception as e:
                     print(f"Error drawing signature: {e}")
@@ -545,7 +546,8 @@ def prescription(request):
 
             p.setFont("Helvetica", 8)
             # Split address string by the pipe '|' delimiter
-            address_parts = [part.strip() for part in clinic_address.split('|')]
+            address_parts = [part.strip()
+                             for part in clinic_address.split('|')]
 
             if len(address_parts) >= 3:
                 p.drawString(LEFT_MARGIN, 0.7 * inch, address_parts[0])
@@ -628,7 +630,8 @@ def history(request):
     try:
         current_doctor = request.user.doctor
     except Doctor.DoesNotExist:
-        messages.error(request, "Access Restricted: You must be a registered doctor to view history.")
+        messages.error(
+            request, "Access Restricted: You must be a registered doctor to view history.")
         return redirect('profile')
 
     # Get the search query and date range from the GET request
@@ -638,7 +641,8 @@ def history(request):
 
     # 2. FILTER LOGIC: Get only THIS doctor's prescriptions
     # We use .filter(doctor=current_doctor) instead of .all()
-    all_prescriptions = Prescription.objects.filter(doctor=current_doctor).order_by('-date_created')
+    all_prescriptions = Prescription.objects.filter(
+        doctor=current_doctor).order_by('-date_created')
 
     # If a search query is provided, filter the prescriptions by patient name
     if query:
@@ -663,6 +667,7 @@ def history(request):
         'end_date': end_date,
     }
     return render(request, 'history.html', context)
+
 
 def help(request):
     """
@@ -976,7 +981,6 @@ def get_previous_medication(request):
         }, status=500)
 
 
-
 # home/views.py
 
 @csrf_exempt
@@ -990,7 +994,7 @@ def analyze_prescription_view(request):
             data = json.loads(request.body.decode('utf-8'))
             confirmed_symptom_names = data.get('confirmed_symptoms', [])
             patient_info = data.get('patient_info', {})
-            
+
             # --- FIX: Get patient name correctly from the JSON data ---
             # We do NOT use 'document.getElementById' here.
             p_name = patient_info.get('name') or data.get('patientName')
@@ -1003,9 +1007,9 @@ def analyze_prescription_view(request):
             # Call LLM (Updated to accept history)
             # We pass the 'include_history=True' flag so it looks up the DB
             med_suggestions = predict_medicines_from_symptoms(
-                symptoms_data_for_llm, 
-                patient_info, 
-                include_history=True 
+                symptoms_data_for_llm,
+                patient_info,
+                include_history=True
             )
 
             return JsonResponse({'status': 'success', 'suggestions': med_suggestions})
@@ -1017,7 +1021,6 @@ def analyze_prescription_view(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'}, status=405)
 # home/views.py
 
-from .models import MedicalHistory # Import the new model
 
 @csrf_exempt
 @login_required
@@ -1036,14 +1039,14 @@ def scan_prescription_view(request):
 
             # 1. Run AI OCR
             extracted_data = analyze_medical_document_image(uploaded_file)
-            
+
             if "error" in extracted_data:
                 return JsonResponse({'status': 'error', 'message': extracted_data['error']}, status=500)
 
             # 2. INTELLIGENT LINKING: Try to find the patient in DB
             patient_obj = None
             patient_name = extracted_data.get('patient_name')
-            
+
             if patient_name and patient_name != 'null':
                 # Simple name match (Case insensitive)
                 # In a real app, you might match by Phone too if available
@@ -1053,10 +1056,11 @@ def scan_prescription_view(request):
 
             # 3. SAVE TO DATABASE (The "Memory")
             # We save the medicines and symptoms as a summary string
-            summary = f"Previous Symptoms: {', '.join(extracted_data.get('symptoms', []))}. Previous Meds: {', '.join(extracted_data.get('medicines', []))}."
-            
+            summary = f"Previous Symptoms: {', '.join(extracted_data.get('symptoms', []))}. Previous Meds: {
+                ', '.join(extracted_data.get('medicines', []))}."
+
             MedicalHistory.objects.create(
-                patient=patient_obj, # Links if found, else Null
+                patient=patient_obj,  # Links if found, else Null
                 scan_image=uploaded_file,
                 extracted_json=extracted_data,
                 summary_text=summary
@@ -1070,5 +1074,3 @@ def scan_prescription_view(request):
             return JsonResponse({'status': 'error', 'message': f'Processing Error: {str(e)}'}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'}, status=405)
-
-
