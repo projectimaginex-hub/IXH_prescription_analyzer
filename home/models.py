@@ -161,6 +161,8 @@ class LLMAudit(models.Model):
 
 # ... existing models ...
 
+# home/models.py
+
 class MedicalHistory(models.Model):
     """
     Stores data extracted from OCR/Scanned documents.
@@ -171,11 +173,14 @@ class MedicalHistory(models.Model):
     # Store the actual extracted data (Symptoms + Previous Meds)
     extracted_json = models.JSONField(default=dict) 
     
-    # We store the text summary for easier AI prompting
+    # Text summary for AI prompting
     summary_text = models.TextField(blank=True, help_text="Summary of previous meds/symptoms")
     
-    # The original image for reference
+    # The original image/PDF
     scan_image = models.ImageField(upload_to='scanned_history/', blank=True, null=True)
+    
+    # --- NEW FIELD: Stores the generated text file (Transcript) ---
+    ocr_transcript_file = models.FileField(upload_to='ocr_transcripts/', blank=True, null=True)
     
     date_scanned = models.DateTimeField(auto_now_add=True)
 

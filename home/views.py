@@ -1022,14 +1022,30 @@ def analyze_prescription_view(request):
 # home/views.py
 
 
+# home/views.py
+
+# home/views.py
+
+# --- ENSURE THESE IMPORTS ARE AT THE TOP OF YOUR FILE ---
+from django.core.files.base import ContentFile
+from django.utils import timezone
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+import traceback
+import json
+from .models import Patient, MedicalHistory
+# --------------------------------------------------------
+
 @csrf_exempt
 @login_required
 def scan_prescription_view(request):
     """
-    Handles OCR:
-    1. Sends image to Gemini.
-    2. SAVES the result to MedicalHistory (Backend Memory).
-    3. Returns data to Frontend.
+    Handles OCR Scanning (Mock Mode):
+    1. Accepts Image Upload.
+    2. Uses DUMMY DATA (since LLM is not ready).
+    3. Generates a physical .txt Transcript file.
+    4. Saves everything to Backend.
     """
     if request.method == 'POST':
         try:
@@ -1037,40 +1053,75 @@ def scan_prescription_view(request):
             if not uploaded_file:
                 return JsonResponse({'status': 'error', 'message': 'No file uploaded.'}, status=400)
 
-            # 1. Run AI OCR
-            extracted_data = analyze_medical_document_image(uploaded_file)
+            # =========================================================
+            # PART A: MOCK DATA (This replaces the AI for now)
+            # =========================================================
+            extracted_data = {
+                "patient_name": "Test Patient",
+                "age": "30",
+                "gender": "Female",
+                "symptoms": ["Migraine", "Nausea", "Sensitivity to light"],
+                "medicines": ["Sumatriptan 50mg", "Zofran 4mg"],
+                "summary": "Patient suffering from acute migraine attack. Prescribed pain relief and anti-nausea meds."
+            }
+            # =========================================================
 
-            if "error" in extracted_data:
-                return JsonResponse({'status': 'error', 'message': extracted_data['error']}, status=500)
+            # =========================================================
+            # PART B: GENERATE TEXT TRANSCRIPT (Your Main Task)
+            # =========================================================
+            transcript_text = f"""[OCR TRANSCRIPT FILE]
+Date Generated: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}
+Source Document: {uploaded_file.name}
 
-            # 2. INTELLIGENT LINKING: Try to find the patient in DB
+--- PATIENT INFO ---
+Name: {extracted_data.get('patient_name', 'N/A')}
+Age: {extracted_data.get('age', 'N/A')}
+Gender: {extracted_data.get('gender', 'N/A')}
+
+--- CLINICAL DETAILS ---
+Symptoms:
+{', '.join(extracted_data.get('symptoms', []))}
+
+Medications Found:
+{', '.join(extracted_data.get('medicines', []))}
+
+--- SUMMARY ---
+{extracted_data.get('summary', 'No summary.')}
+"""
+
+            # =========================================================
+            # PART C: SAVE TO DATABASE & MEDIA FOLDER
+            # =========================================================
+            
+            # 1. Optional: Link to real patient if found
             patient_obj = None
-            patient_name = extracted_data.get('patient_name')
+            if extracted_data.get('patient_name'):
+                patient_obj = Patient.objects.filter(name__iexact=extracted_data['patient_name']).first()
 
-            if patient_name and patient_name != 'null':
-                # Simple name match (Case insensitive)
-                # In a real app, you might match by Phone too if available
-                matches = Patient.objects.filter(name__iexact=patient_name)
-                if matches.exists():
-                    patient_obj = matches.first()
-
-            # 3. SAVE TO DATABASE (The "Memory")
-            # We save the medicines and symptoms as a summary string
-            summary = f"Previous Symptoms: {', '.join(extracted_data.get('symptoms', []))}. Previous Meds: {
-                ', '.join(extracted_data.get('medicines', []))}."
-
-            MedicalHistory.objects.create(
-                patient=patient_obj,  # Links if found, else Null
+            # 2. Create DB Entry
+            history_entry = MedicalHistory.objects.create(
+                patient=patient_obj,
                 scan_image=uploaded_file,
                 extracted_json=extracted_data,
-                summary_text=summary
+                summary_text=extracted_data.get('summary', '')
             )
 
-            # 4. Return to Frontend
-            return JsonResponse({'status': 'success', 'data': extracted_data})
+            # 3. Save the .txt file
+            file_name = f"transcript_{history_entry.id}.txt"
+            history_entry.ocr_transcript_file.save(
+                file_name,
+                ContentFile(transcript_text.encode('utf-8'))
+            )
+            history_entry.save()
+
+            return JsonResponse({
+                'status': 'success', 
+                'transcript_url': history_entry.ocr_transcript_file.url,
+                'message': 'Text transcript generated and saved successfully.'
+            })
 
         except Exception as e:
             traceback.print_exc()
-            return JsonResponse({'status': 'error', 'message': f'Processing Error: {str(e)}'}, status=500)
+            return JsonResponse({'status': 'error', 'message': f'Error: {str(e)}'}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'}, status=405)
